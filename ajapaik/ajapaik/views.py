@@ -272,16 +272,16 @@ def get_album_info_modal_content(request):
         for sa in album.subalbums.filter(atype__in=[Album.CURATED, Album.PERSON]):
             subalbums.append(sa.id)
 
-        rephotostats = AlbumStats.get_rephoto_stats_sql(subalbums, profile.pk)
+        rephoto_stats = AlbumStats.get_rephoto_stats_sql(subalbums, profile.pk)
 
         context['user_geotagged_photo_count'] = AlbumStats.get_user_geotagged_photo_count_sql(subalbums, profile.pk)
         context['geotagging_user_count'] = AlbumStats.get_geotagging_user_count_sql(subalbums)
-        context['rephoto_count'] = rephotostats["rephoto_count"]
-        context['rephoto_user_count'] = rephotostats["rephoto_user_count"]
-        context['rephotographed_photo_count'] = rephotostats["rephotographed_photo_count"]
-        context['user_rephoto_count'] = rephotostats["user_rephoto_count"]
-        context['user_rephotographed_photo_count'] = rephotostats["user_rephotographed_photo_count"]
-        context['user_made_all_rephotos'] = rephotostats['user_made_all_rephotos']
+        context['rephoto_count'] = rephoto_stats["rephoto_count"]
+        context['rephoto_user_count'] = rephoto_stats["rephoto_user_count"]
+        context['rephotographed_photo_count'] = rephoto_stats["rephotographed_photo_count"]
+        context['user_rephoto_count'] = rephoto_stats["user_rephoto_count"]
+        context['user_rephotographed_photo_count'] = rephoto_stats["user_rephotographed_photo_count"]
+        context['user_made_all_rephotos'] = rephoto_stats['user_made_all_rephotos']
         context['similar_photo_count'] = album.similar_photo_count_with_subalbums
         context['confirmed_similar_photo_count'] = album.confirmed_similar_photo_count_with_subalbums
         context['album_curators'] = AlbumStats.get_album_curators_sql([album.id])

@@ -98,6 +98,7 @@ def test_can_action_be_done():
     white = Image.new('RGBA', (32, 32), (255, 255, 255, 0))
     white.save(source, "PNG")
     photo = Photo.objects.create(image=source, title='Title', description='Description')
+    photo = Photo.objects.get(id=photo.id)
     photo.image.name = 'uploads/test_image.png'
     photo.light_save()
 
