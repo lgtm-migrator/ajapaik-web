@@ -38,9 +38,7 @@ class Command(BaseCommand):
                 person_album_ids = []
 
                 title_find = rec.find(f'{title_wrap}lido:titleSet/lido:appellationValue', ns)
-                title = title_find.text \
-                    if title_find is not None \
-                    else None
+                title = title_find and title_find.text or None
                 photo = reset_modeltranslated_field(photo, 'title', title)
                 photo.light_save()
                 photo, dating = set_text_fields_from_muis(photo, None, rec, object_description_wraps, ns)
@@ -54,7 +52,7 @@ class Command(BaseCommand):
                 location = []
                 events = rec.findall(f'{event_wrap}lido:eventSet/lido:event', ns)
                 existing_dating = Dating.objects.filter(photo=photo, profile=None).first()
-                if events is not None and len(events) > 0:
+                if len(events) > 0:
                     location, \
                     creation_date_earliest, \
                     creation_date_latest, \
@@ -89,7 +87,6 @@ class Command(BaseCommand):
                     date_prefix_earliest,
                     date_prefix_latest,
                     Dating,
-                    date_earliest_has_suffix,
                     date_latest_has_suffix
                 )
                 dt = datetime.utcnow()

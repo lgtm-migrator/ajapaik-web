@@ -201,7 +201,6 @@ class Command(BaseCommand):
                         date_prefix_earliest,
                         date_prefix_latest,
                         Dating,
-                        date_earliest_has_suffix,
                         date_latest_has_suffix,
                     )
                     photo.light_save()
@@ -229,7 +228,7 @@ class Command(BaseCommand):
             until_date = from_date
 
         for album in albums:
-            #            album.set_calculated_fields()
+            # album.set_calculated_fields()
             album.light_save()
 
         all_person_album_ids = list(all_person_album_ids_set)

@@ -17,6 +17,7 @@ from io import StringIO
 from math import ceil
 from random import choice
 from time import strftime, strptime, time
+from typing import Optional
 from urllib.request import build_opener
 from uuid import uuid4
 from xml.etree import ElementTree as ET
@@ -62,6 +63,7 @@ from django_comments.views.comments import post_comment
 from haystack.inputs import AutoQuery
 from haystack.query import SearchQuerySet
 from rest_framework.renderers import JSONRenderer
+from rest_framework.request import Request
 from sorl.thumbnail import delete
 from sorl.thumbnail import get_thumbnail
 
@@ -86,7 +88,8 @@ from ajapaik.ajapaik.models import Photo, Profile, Source, Device, DifficultyFee
 from ajapaik.ajapaik.serializers import CuratorAlbumSelectionAlbumSerializer, CuratorMyAlbumListAlbumSerializer, \
     CuratorAlbumInfoSerializer, FrontpageAlbumSerializer, DatingSerializer, \
     VideoSerializer, PhotoMapMarkerSerializer
-from ajapaik.ajapaik.stats_sql import AlbumStats
+from ajapaik.ajapaik.stats_sql import get_rephoto_stats_sql, get_user_geotagged_photo_count_sql, \
+    get_geotagging_user_count_sql, get_album_curators_sql
 from ajapaik.ajapaik_face_recognition.models import FaceRecognitionRectangle
 from ajapaik.ajapaik_object_recognition.models import ObjectDetectionAnnotation
 from ajapaik.utils import get_etag, calculate_thumbnail_size, convert_to_degrees, calculate_thumbnail_size_max_height, \
@@ -99,9 +102,8 @@ Image.MAX_IMAGE_PIXELS = 933120000
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def image_thumb(request, photo_id=None, thumb_size=250, pseudo_slug=None):
-    thumb_size = int(thumb_size)
-    if 0 < thumb_size <= 400:
+def image_thumb(request: Request, photo_id: Optional[int], thumb_size: int = 400, pseudo_slug=None):
+    if 0 < thumb_size or thumb_size <= 400:
         thumb_size = 400
     else:
         thumb_size = 1024
@@ -121,17 +123,17 @@ def image_thumb(request, photo_id=None, thumb_size=250, pseudo_slug=None):
         im = get_thumbnail(p.image, thumb_str, upscale=False)
         content = im.read()
 
-    return get_image_thumb(request, f'{settings.MEDIA_ROOT}/{im.name}', content)
+    return get_image_thumb(request, content)
 
 
 @condition(etag_func=get_etag, last_modified_func=last_modified)
 @cache_control(must_revalidate=True)
-def get_image_thumb(request, image, content):
+def get_image_thumb(request: Request, content):
     return HttpResponse(content, content_type='image/jpg')
 
 
 @cache_control(max_age=604800)
-def image_full(request, photo_id=None, pseudo_slug=None):
+def image_full(request: Request, photo_id=None, pseudo_slug=None):
     p = get_object_or_404(Photo, id=photo_id)
     content = p.image.read()
 
@@ -139,7 +141,7 @@ def image_full(request, photo_id=None, pseudo_slug=None):
 
 
 def get_general_info_modal_content(request):
-    profile = request.get_user().profile
+    _ = request.get_user().profile  # FIXME: For some reason user Profile could be None if it's not asked once.
     photo_qs = Photo.objects.filter(rephoto_of__isnull=True)
     rephoto_qs = Photo.objects.filter(rephoto_of__isnull=False)
     geotags_qs = GeoTag.objects.filter()
@@ -254,7 +256,7 @@ def get_album_info_modal_content_old(request):
 # than old because different way to handle NULL:s
 
 def get_album_info_modal_content(request):
-    starttime = time()
+    start_time = time()
 
     profile = request.get_user().profile
     form = AlbumInfoModalForm(request.GET)
@@ -272,10 +274,10 @@ def get_album_info_modal_content(request):
         for sa in album.subalbums.filter(atype__in=[Album.CURATED, Album.PERSON]):
             subalbums.append(sa.id)
 
-        rephoto_stats = AlbumStats.get_rephoto_stats_sql(subalbums, profile.pk)
+        rephoto_stats = get_rephoto_stats_sql(subalbums, profile.pk)
 
-        context['user_geotagged_photo_count'] = AlbumStats.get_user_geotagged_photo_count_sql(subalbums, profile.pk)
-        context['geotagging_user_count'] = AlbumStats.get_geotagging_user_count_sql(subalbums)
+        context['user_geotagged_photo_count'] = get_user_geotagged_photo_count_sql(subalbums, profile.pk)
+        context['geotagging_user_count'] = get_geotagging_user_count_sql(subalbums)
         context['rephoto_count'] = rephoto_stats["rephoto_count"]
         context['rephoto_user_count'] = rephoto_stats["rephoto_user_count"]
         context['rephotographed_photo_count'] = rephoto_stats["rephotographed_photo_count"]
@@ -284,7 +286,7 @@ def get_album_info_modal_content(request):
         context['user_made_all_rephotos'] = rephoto_stats['user_made_all_rephotos']
         context['similar_photo_count'] = album.similar_photo_count_with_subalbums
         context['confirmed_similar_photo_count'] = album.confirmed_similar_photo_count_with_subalbums
-        context['album_curators'] = AlbumStats.get_album_curators_sql([album.id])
+        context['album_curators'] = get_album_curators_sql([album.id])
 
         if album.lat and album.lon:
             ref_location = Point(x=album.lon, y=album.lat, srid=4326)
@@ -300,7 +302,7 @@ def get_album_info_modal_content(request):
         context['share_game_link'] = f'{request.build_absolute_uri(reverse("game"))}?album={album_id_str}'
         context['share_map_link'] = f'{request.build_absolute_uri(reverse("map"))}?album={album_id_str}'
         context['share_gallery_link'] = f'{request.build_absolute_uri(reverse("frontpage"))}?album={album_id_str}'
-        context['execution_time'] = starttime - time()
+        context['execution_time'] = start_time - time()
 
         return render(request, 'info/_info_modal_content.html', context)
 
@@ -311,9 +313,8 @@ def _get_exif_data(img):
     try:
         exif = img._getexif()
     except (AttributeError, IOError, KeyError, IndexError):
-        exif = None
-    if exif is None:
         return None
+
     exif_data = {}
     for (tag, value) in exif.items():
         decoded = TAGS.get(tag, tag)
@@ -332,13 +333,18 @@ def _get_exif_data(img):
 def _extract_and_save_data_from_exif(photo_with_exif):
     img = Image.open(f'{settings.MEDIA_ROOT}/{str(photo_with_exif.image)}')
     exif_data = _get_exif_data(img)
+
+    lat = 'GPSInfo.GPSLatitude'
+    lng = 'GPSInfo.GPSLongitude'
+    lng_ref = 'GPSInfo.GPSLongitude'
+    lat_ref = 'GPSInfo.GPSLatitudeRef'
+
     if exif_data:
-        if 'GPSInfo.GPSLatitudeRef' in exif_data and 'GPSInfo.GPSLatitude' in exif_data and 'GPSInfo.GPSLongitudeRef' \
-                in exif_data and 'GPSInfo.GPSLongitude' in exif_data:
-            gps_latitude_ref = exif_data.get('GPSInfo.GPSLatitudeRef')
-            gps_latitude = exif_data.get('GPSInfo.GPSLatitude')
-            gps_longitude_ref = exif_data.get('GPSInfo.GPSLongitudeRef')
-            gps_longitude = exif_data.get('GPSInfo.GPSLongitude')
+        if lat_ref in exif_data and lat in exif_data and lng_ref in exif_data and lng in exif_data:
+            gps_latitude_ref = exif_data.get(lat_ref)
+            gps_latitude = exif_data.get(lat)
+            gps_longitude_ref = exif_data.get(lng_ref)
+            gps_longitude = exif_data.get(lng)
             try:
                 lat = convert_to_degrees(gps_latitude)
                 if gps_latitude_ref != 'N':
@@ -826,8 +832,8 @@ def frontpage_async_albums(request):
     return HttpResponse(json.dumps(context), content_type='application/json')
 
 
-def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None):
-    starttime = time()
+def _get_filtered_data_for_frontpage(request: Request, album_id: Optional[int] = None, page_override=None):
+    start_time = time()
     profile = request.get_user().profile
     photos = Photo.objects.filter(rephoto_of__isnull=True)
     filter_form = GalleryFilteringForm(request.GET)
@@ -877,7 +883,7 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
             context['photos_with_similar_photos'] = None
             context['show_photos'] = None
             context['is_photoset'] = None
-            context['execution_time'] = str(time() - starttime)
+            context['execution_time'] = str(time() - start_time)
             return context
         else:
             show_photos = True
@@ -1234,11 +1240,11 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
         context['show_photos'] = False
         context['max_page'] = ceil(float(context['total']) / float(page_size))
 
-    context['execution_time'] = str(time() - starttime)
+    context['execution_time'] = str(time() - start_time)
     return context
 
 
-def photo_selection(request):
+def photo_selection(request: Request):
     form = PhotoSelectionForm(request.POST)
     if 'photo_selection' not in request.session:
         request.session['photo_selection'] = {}
@@ -1257,7 +1263,7 @@ def photo_selection(request):
     return HttpResponse(json.dumps(request.session['photo_selection']), content_type='application/json')
 
 
-def list_photo_selection(request):
+def list_photo_selection(request: Request):
     photos = None
     at_least_one_photo_has_location = False
     count_with_location = 0
@@ -1283,7 +1289,7 @@ def list_photo_selection(request):
     return render(request, 'photo/selection/photo_selection.html', context)
 
 
-def upload_photo_selection(request):
+def upload_photo_selection(request: Request):
     form = SelectionUploadForm(request.POST)
     context = {
         'ajapaik_facebook_link': settings.AJAPAIK_FACEBOOK_LINK,
@@ -1337,12 +1343,12 @@ def upload_photo_selection(request):
 
 
 # FIXME: This should either be used more or not at all
-def _make_fullscreen(p):
+def _make_fullscreen(p: Photo):
     if p and p.image:
         return {'url': p.image.url, 'size': [p.image.width, p.image.height]}
 
 
-def videoslug(request, video_id, pseudo_slug=None):
+def videoslug(request: Request, video_id: Optional[int, None] = None, pseudo_slug=None):
     video = get_object_or_404(Video, pk=video_id)
     if request.is_ajax():
         template = 'video/_video_modal.html'
@@ -1353,7 +1359,7 @@ def videoslug(request, video_id, pseudo_slug=None):
 
 
 @ensure_csrf_cookie
-def photoslug(request, photo_id=None, pseudo_slug=None):
+def photoslug(request: Request, photo_id: Optional[int, None] = None, pseudo_slug=None):
     # Because of some bad design decisions, we have a URL /photo, let's just give a random photo
     if photo_id is None:
         photo_id = Photo.objects.order_by('?').first().pk
@@ -1592,7 +1598,7 @@ def photoslug(request, photo_id=None, pseudo_slug=None):
     return render(request, template, context)
 
 
-def photo_upload_modal(request, photo_id):
+def photo_upload_modal(request: Request, photo_id: int):
     photo = get_object_or_404(Photo, pk=photo_id)
     licence = Licence.objects.get(id=17)  # CC BY 4.0
     context = {
@@ -1603,7 +1609,7 @@ def photo_upload_modal(request, photo_id):
     return render(request, 'rephoto_upload/_rephoto_upload_modal_content.html', context)
 
 
-def login_modal(request):
+def login_modal(request: Request):
     context = {
         'next': request.META.get('HTTP_REFERER', None),
         'type': request.GET.get('type', None)
@@ -1612,7 +1618,7 @@ def login_modal(request):
 
 
 @ensure_csrf_cookie
-def mapview(request, photo_id=None, rephoto_id=None):
+def mapview(request: Request, photo_id: Optional[int, None] = None, rephoto_id: Optional[int, None] = None):
     profile = request.get_user().profile
     area_selection_form = AreaSelectionForm(request.GET)
     game_album_selection_form = GameAlbumSelectionForm(request.GET)
@@ -3435,10 +3441,10 @@ def me(request):
 
 
 def oauthdone(request):
-    user = request.user
+    request_user = request.user
     form = OauthDoneForm(request.GET)
     if form.is_valid():
-        if user.is_anonymous:
+        if request_user.is_anonymous:
             return HttpResponse('No user found', status=404)
 
         provider = form.cleaned_data['provider']
@@ -3451,7 +3457,7 @@ def oauthdone(request):
         if not app:
             return HttpResponse('Provider ' + provider + ' not found.', status=404)
 
-        social_token = SocialToken.objects.get(account__user_id=user.id, app=app)
+        social_token = SocialToken.objects.get(account__user_id=request_user.id, app=app)
         if not social_token:
             return HttpResponse('Token not found.', status=404)
 
@@ -3466,15 +3472,17 @@ def oauthdone(request):
     return HttpResponse('No user found', status=404)
 
 
-def user(request, user_id):
+def user(request: Request, user_id: int):
     token = ProfileMergeToken.objects.filter(source_profile_id=user_id, used__isnull=False).order_by('used').first()
-    if token is not None and token.target_profile is not None:
+    if token and token.target_profile:
         return redirect('user', user_id=token.target_profile.id)
     current_profile = request.get_user().profile
     profile = get_object_or_404(Profile, pk=user_id)
     is_current_user = False
+
     if current_profile == profile:
         is_current_user = True
+
     if profile.user.is_anonymous:
         commented_pictures_count = 0
     else:
@@ -3545,7 +3553,7 @@ def user(request, user_id):
     return render(request, 'user/user.html', context)
 
 
-def user_settings_modal(request):
+def user_settings_modal(request: Request):
     form = None
     if hasattr(request.user, 'profile'):
         form = UserSettingsForm(data={
@@ -3553,7 +3561,7 @@ def user_settings_modal(request):
             'newsletter_consent': request.user.profile.newsletter_consent
         })
     context = {
-        'form': form,
+        'form': form or None,
         'isModal': True
     }
 

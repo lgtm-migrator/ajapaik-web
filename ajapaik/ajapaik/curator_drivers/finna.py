@@ -8,7 +8,7 @@ from django.contrib.gis.geos import Point
 from django.core.files.base import ContentFile
 from requests import get
 
-from ajapaik.ajapaik.models import Photo, AlbumPhoto, Album, GeoTag, Licence, Source
+from ajapaik.ajapaik.models import Photo, AlbumPhoto, Album, GeoTag, Licence, Source, Profile
 
 
 def finna_cut_title(title, short_title):
@@ -52,7 +52,7 @@ def get_img_url(p, size=''):
         return None
 
 
-def finna_find_photo_by_url(record_url, profile):
+def finna_find_photo_by_url(record_url, profile: Profile):
     photo = None
     if re.search('(finna.fi|helsinkikuvia.fi)', record_url):
         m = re.search(r'https://(hkm\.|www\.)?finna.fi/Record/(.*?)( |\?|#|$)', record_url)
@@ -82,10 +82,10 @@ def finna_find_photo_by_url(record_url, profile):
     return photo
 
 
-def finna_import_photo(id, profile):
+def finna_import_photo(record_id: int, profile: Profile):
     record_url = 'https://api.finna.fi/v1/record'
     finna_result = get(record_url, {
-        'id': id,
+        'id': record_id,
         'field[]': ['id', 'title', 'shortTitle', 'images', 'imageRights', 'authors', 'source', 'geoLocations',
                     'recordPage', 'year',
                     'summary', 'rawData', 'imagesExtended'],
@@ -223,12 +223,8 @@ def finna_import_photo(id, profile):
 
         new_photo.save()
         new_photo.add_to_source_album()
-        id = int(new_photo.id)
-        photo = Photo.objects.filter(
-            pk=id
-        ).first()
 
-        return photo
+        return Photo.objects.filter(pk=new_photo.id).first()
 
 
 def safe_list_get(my_list, idx, default):

@@ -48,7 +48,7 @@ class AuthBackend(MiddlewareMixin):
     def authenticate(self, request=None, username=None, password=None, user=None):
         if user:
             return user
-        if password is not None:
+        if password:
             try:
                 user = User.objects.get(username=username)
                 if user.check_password(password):
