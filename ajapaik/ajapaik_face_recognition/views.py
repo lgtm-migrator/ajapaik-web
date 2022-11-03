@@ -67,13 +67,12 @@ def _get_consensus_subject(rectangle: FaceRecognitionRectangle) -> Optional[int]
 def save_subject_object(subject_album, rectangle, user_id, user_profile):
     status = 200
 
-    new_suggestion = FaceRecognitionUserSuggestion(
+    new_suggestion = FaceRecognitionUserSuggestion.objects.create(
         subject_album=subject_album,
         rectangle=rectangle,
         user_id=user_id,
         origin=FaceRecognitionUserSuggestion.USER
     )
-    new_suggestion.save()
 
     consensus_subject: Optional[int] = _get_consensus_subject(rectangle)
     current_consensus_album = Album.objects.filter(pk=rectangle.subject_consensus_id).first()
@@ -130,13 +129,12 @@ def add_person_rectangle(values, photo, user_id):
         int(float(y2)),
         int(float(x1))
     ]
-    new_rectangle = FaceRecognitionRectangle(
+    new_rectangle = FaceRecognitionRectangle.objects.create(
         photo=photo,
         coordinates=json.dumps(coordinates),
         user_id=user_id,
         origin=FaceRecognitionRectangle.USER
     )
-    new_rectangle.save()
 
     if photo.first_annotation is None:
         photo.first_annotation = new_rectangle.created

@@ -124,15 +124,15 @@ def can_action_be_done(model, photo, profile, key, new_value):
     setattr(new_suggestion, key, new_value)
 
     all_suggestions = model.objects.filter(
-            photo=photo
-        ).exclude(
-            proposer=profile
-        ).order_by(
-            'proposer_id',
-            '-created'
-        ).all().distinct(
-            'proposer_id'
-        )
+        photo=photo
+    ).exclude(
+        proposer=profile
+    ).order_by(
+        'proposer_id',
+        '-created'
+    ).all().distinct(
+        'proposer_id'
+    )
 
     if all_suggestions is not None:
         suggestions = [new_value]
@@ -200,7 +200,7 @@ def suggest_photo_edit(photo_suggestions, key, new_value, Points, score, action_
                 response = SUGGESTION_CHANGED
                 was_action_successful = True
         else:
-            Points(user=profile, action=action_type, photo=photo, points=score, created=timezone.now()).save()
+            Points.objects.create(user=profile, action=action_type, photo=photo, points=score, created=timezone.now())
             if response != SUGGESTION_CHANGED and response != SUGGESTION_SAVED_BUT_CONSENSUS_NOT_AFFECTED:
                 response = SUGGESTION_SAVED
                 was_action_successful = True

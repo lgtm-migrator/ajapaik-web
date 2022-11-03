@@ -46,7 +46,7 @@ class AuthBackend(MiddlewareMixin):
     supports_inactive_user = True
 
     def authenticate(self, request=None, username=None, password=None, user=None):
-        if user is not None:
+        if user:
             return user
         if password is not None:
             try:
@@ -71,7 +71,6 @@ class AuthBackend(MiddlewareMixin):
                 return user
             except ObjectDoesNotExist:
                 user = User.objects.create_user(username=bot_username)
-                user.save()
                 Action.log('user_middleware.create.bot', related_object=user)
 
                 return user

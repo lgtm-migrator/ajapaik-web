@@ -1,20 +1,18 @@
-from datetime import datetime, timezone, timedelta
-
 import logging
-import urllib
 import time
 import traceback
-
-from django.conf import settings
-from django.core.management.base import BaseCommand
+import urllib
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
 
+import requests
+from django.conf import settings
+from django.core.management.base import BaseCommand
+
+from ajapaik.ajapaik.models import Album, AlbumPhoto, Dating, Photo, Source, ApplicationException
 from ajapaik.ajapaik.muis_utils import add_person_albums, extract_dating_from_event, add_dating_to_photo, \
     add_geotag_from_address_to_photo, get_muis_date_and_prefix, set_text_fields_from_muis, reset_modeltranslated_field
-from ajapaik.ajapaik.models import Album, AlbumPhoto, Dating, Photo, Source, ApplicationException
-import xml.etree.ElementTree as ET
-
-import requests
 
 
 class Command(BaseCommand):
@@ -49,8 +47,7 @@ class Command(BaseCommand):
             for s in sets:
                 if s.find('d:setSpec', ns).text == museum_name:
                     source_description = s.find('d:setName', ns).text
-                    source = Source(name=museum_name, description=source_description)
-                    source.save()
+                    source = Source.objects.create(name=museum_name, description=source_description)
         source = Source.objects.filter(name=museum_name).first()
 
         dates = []
@@ -106,12 +103,12 @@ class Command(BaseCommand):
 
                     rp_lr = 'resourceRepresentation/lido:linkResource'
                     image_url = rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}', ns).text \
-                        if rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}', ns) is not None\
+                        if rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}', ns) is not None \
                         else None
 
                     image_extension = (rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}',
                                                 ns).attrib['{' + ns['lido'] + '}formatResource']).lower() \
-                        if rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}', ns) is not None\
+                        if rec.find(f'{resource_wrap}lido:resourceSet/lido:{rp_lr}', ns) is not None \
                         else None
 
                     source_url_find = rec.find(f'{record_wrap}lido:recordInfoSet/lido:recordInfoLink', ns)
@@ -169,20 +166,20 @@ class Command(BaseCommand):
                     events = rec.findall(f'{event_wrap}lido:eventSet/lido:event', ns)
                     if events is not None and len(events) > 0:
                         locations, \
-                            creation_date_earliest, \
-                            creation_date_latest, \
-                            date_prefix_earliest, \
-                            date_prefix_latest, \
-                            date_earliest_has_suffix, \
-                            date_latest_has_suffix, \
+                        creation_date_earliest, \
+                        creation_date_latest, \
+                        date_prefix_earliest, \
+                        date_prefix_latest, \
+                        date_earliest_has_suffix, \
+                        date_latest_has_suffix, \
                             = extract_dating_from_event(
-                                events,
-                                locations,
-                                creation_date_earliest,
-                                creation_date_latest,
-                                photo.latest_dating is not None or dating is not None,
-                                ns
-                            )
+                            events,
+                            locations,
+                            creation_date_earliest,
+                            creation_date_latest,
+                            photo.latest_dating is not None or dating is not None,
+                            ns
+                        )
                     if dating is not None:
                         creation_date_earliest, date_prefix_earliest, date_earliest_has_suffix = \
                             get_muis_date_and_prefix(dating, False)
@@ -226,14 +223,13 @@ class Command(BaseCommand):
                     photo.set_calculated_fields()
                 except Exception as e:
                     logger.exception(e)
-                    exception = ApplicationException(exception=traceback.format_exc(), photo=photo)
-                    exception.save()
+                    ApplicationException.objects.create(exception=traceback.format_exc(), photo=photo)
 
                 time.sleep(1)
             until_date = from_date
 
         for album in albums:
-#            album.set_calculated_fields()
+            #            album.set_calculated_fields()
             album.light_save()
 
         all_person_album_ids = list(all_person_album_ids_set)
@@ -241,5 +237,5 @@ class Command(BaseCommand):
 
         if all_person_albums.exists():
             for person_album in all_person_albums:
-#                person_album.set_calculated_fields()
+                #                person_album.set_calculated_fields()
                 person_album.light_save()

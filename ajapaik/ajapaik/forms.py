@@ -15,9 +15,10 @@ from .models import (Album, Area, Dating, GeoTag, Licence, Photo, PhotoLike,
 
 
 class OauthDoneForm(forms.Form):
-    token=forms.CharField(label=_('Token'), max_length=254)
-    route=forms.CharField(label=_('Route'), max_length=254)
-    provider=forms.CharField(label=_('Provider'), max_length=254)
+    token = forms.CharField(label=_('Token'), max_length=254)
+    route = forms.CharField(label=_('Route'), max_length=254)
+    provider = forms.CharField(label=_('Provider'), max_length=254)
+
 
 class SignupForm(AllauthSignupForm):
     email = forms.CharField(label=_('Email'), max_length=254)
@@ -32,7 +33,7 @@ class SignupForm(AllauthSignupForm):
     def signup(self, request, user):
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
-        user.save()
+        user.save(changed_fields=['first_name', 'last_name'])
         return user
 
 

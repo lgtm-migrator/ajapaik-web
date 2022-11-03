@@ -24,9 +24,8 @@ def add_feedback(request: FaceAnnotationFeedbackRequest, http_request: HttpReque
         face_annotation.photo.latest_annotation = existing_feedback.modified
         face_annotation.photo.light_save()
     else:
-        new_feedback = FaceRecognitionRectangleFeedback()
+        new_feedback = FaceRecognitionRectangleFeedback.objects.create()
         set_feedback(new_feedback, request, user, face_annotation)
-        new_feedback.save()
         if face_annotation.photo.first_annotation is None:
             face_annotation.photo.first_annotation = new_feedback.modified
         face_annotation.photo.latest_annotation = new_feedback.modified

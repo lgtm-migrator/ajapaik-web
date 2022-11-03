@@ -101,9 +101,11 @@ class FaceRecognitionRectangle(models.Model):
             age = 3
         if age == 'NOT_APPLICABLE':
             age = 4
-        new_suggestion = FaceRecognitionRectangleSubjectDataSuggestion(face_recognition_rectangle=self,
-                                                                       proposer=profile, gender=gender, age=age)
-        new_suggestion.save()
+        new_suggestion = FaceRecognitionRectangleSubjectDataSuggestion.objects.create(
+            face_recognition_rectangle=self,
+            proposer=profile, gender=gender, age=age
+        )
+
         self.photo.latest_annotation = new_suggestion.created
         self.photo.light_save()
 

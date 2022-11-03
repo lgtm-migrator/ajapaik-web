@@ -56,15 +56,18 @@ class PhotoAdmin(ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if obj.lat and obj.lon and obj.bounding_circle_radius:
-            # If an administrator sets a bounding circle, invalidate GeoTags outside of it
+            # If an administrator sets a bounding circle, invalidate outside GeoTags
             all_photo_geotags = GeoTag.objects.filter(photo_id=obj.id)
             for geotag in all_photo_geotags:
                 d = self._distance_between_two_points_on_sphere(obj.lon, obj.lat, geotag.lon, geotag.lat)
-                if d > obj.bounding_circle_radius:
+                if d > obj.bounding_circle_radius and geotag.is_correct:
                     geotag.is_correct = False
-                else:
+                elif not geotag.is_correct:
                     geotag.is_correct = True
-                geotag.save()
+                else:
+                    continue
+
+                geotag.save(changed_fields=["is_correct"])
         obj.save()
 
     def _invertcolors(self, id):

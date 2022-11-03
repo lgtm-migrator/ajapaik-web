@@ -10,7 +10,6 @@ import shutil
 import ssl
 import stat
 import sys
-import unicodedata
 import urllib
 from copy import deepcopy
 from html import unescape
@@ -23,10 +22,10 @@ from uuid import uuid4
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
-import numpy
 import cv2
 import django_comments
 import requests
+import unicodedata
 from PIL import Image, ImageFile, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from allauth.account.forms import AddEmailForm, ChangePasswordForm, SetPasswordForm
@@ -37,7 +36,7 @@ from allauth.socialaccount.views import ConnectionsView
 from django.conf import settings
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.gis.db.models.functions import Distance, GeometryDistance
+from django.contrib.gis.db.models.functions import GeometryDistance
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.core.cache import cache
@@ -349,7 +348,7 @@ def _extract_and_save_data_from_exif(photo_with_exif):
                     lon = 0 - lon
                 photo_with_exif.lat = lat
                 photo_with_exif.lon = lon
-                photo_with_exif.save()
+                photo_with_exif.light_save(changed_fields=['lat', 'lon'])
             except:
                 print("convert_to_degrees() failed")
 
@@ -396,7 +395,7 @@ def _extract_and_save_data_from_exif(photo_with_exif):
 
 def _get_album_choices(qs=None, start=None, end=None):
     # TODO: Sort out
-    if qs != None and qs.exists():
+    if qs and qs.exists():
         albums = qs.prefetch_related('cover_photo').order_by('-created')[start:end]
     else:
         albums = Album.objects.filter(is_public=True).prefetch_related('cover_photo').order_by('-created')[start:end]
@@ -423,7 +422,7 @@ def _calculate_recent_activity_scores():
     recent_actors = Profile.objects.filter(pk__in=recent_action_dict.keys())
     for each in recent_actors:
         each.score_recent_activity = recent_action_dict[each.pk]
-        each.save()
+        each.save(changed_fields=['score_recent_activity'])
     # Profile.objects.bulk_update(recent_actors, update_fields=['score_recent_activity'])
     # Check for people who somehow no longer have actions among the last 5000
     orphan_profiles = Profile.objects.filter(score_recent_activity__gt=0).exclude(pk__in=[x.pk for x in recent_actors])
@@ -620,7 +619,7 @@ def game(request):
     album = None
     area = None
     context = {
-        'albums': _get_album_choices(None, 0, 1)  # Where this is used? Ie. is albums variable used at all
+        'albums': _get_album_choices(None, 0, 1)  # Where this is used? i.e. is albums variable used at all
     }
 
     if game_photo_selection_form.is_valid():
@@ -893,7 +892,7 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
         if not album or album.id != 38516:
             blacklist_exists = Album.objects.filter(id=38516).exists()
             if blacklist_exists:
-                photos = photos.exclude(albums__in = [38516])
+                photos = photos.exclude(albums__in=[38516])
 
         # FILTERING BELOW THIS LINE
 
@@ -901,11 +900,11 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
             sa_ids = [album.id]
             for sa in album.subalbums.exclude(atype=Album.AUTO):
                 sa_ids.append(sa.id)
-            photos = photos.filter(albums__in = sa_ids)
+            photos = photos.filter(albums__in=sa_ids)
 
             # In QuerySet "albums__in" is 1:M JOIN  so images will show up
             # multiple times in results so this needs to be distinct(). Distinct is slow.
-            photos=photos.distinct()
+            photos = photos.distinct()
 
         if filter_form.cleaned_data['people']:
             photos = photos.filter(face_recognition_rectangles__isnull=False,
@@ -955,7 +954,7 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
         # In some cases it is faster to get number of photos before we annotate new columns to it
         albumsize_before_sorting = 0
         if not album:
-            albumsize_before_sorting=Photo.objects.filter(pk__in=photos).cached_count()
+            albumsize_before_sorting = Photo.objects.filter(pk__in=photos).cached_count()
 
         # SORTING BELOW THIS LINE
 
@@ -1096,14 +1095,14 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
         # Note seeking (start:end) has been here done when results are limited using photo_ids above
         if albumsize_before_sorting:
             start, end, total, max_page, page = get_pagination_parameters(page, page_size, albumsize_before_sorting)
-            # limit QuerySet to selected photos so it is faster to evaluate in next steps
+            # limit QuerySet to selected photos, so it is faster to evaluate in next steps
             photos_ids = list(photos.values_list('id', flat=True)[start:end])
-            photos=photos.filter(id__in=photos_ids)
+            photos = photos.filter(id__in=photos_ids)
         else:
             photos_ids = list(photos.values_list('id', flat=True))
             start, end, total, max_page, page = get_pagination_parameters(page, page_size, len(photos_ids))
-            # limit QuerySet to selected photos so it is faster to evaluate in next steps
-            photos=photos.filter(id__in=photos_ids[start:end])
+            # limit QuerySet to selected photos, so it is faster to evaluate in next steps
+            photos = photos.filter(id__in=photos_ids[start:end])
 
         # FIXME: Stupid
         if order1 == 'closest' and lat and lon:
@@ -1129,7 +1128,7 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
                 p[3] = p[14] + (". " if p[14][-1] != "." else " ") + p[
                     3]  # add title to image description if both are present.
 
-            # Failback width/height for photos which imagedata arent saved yet
+            # Failback width/height for photos which imagedata aren't saved yet
             if p[1] == '' or p[1] is None:
                 p[1] = 400
             if p[2] == '' or p[2] is None:
@@ -1436,8 +1435,7 @@ def photoslug(request, photo_id=None, pseudo_slug=None):
                 current_parent = current_parent.subalbum_of
     albums = Album.objects.filter(pk__in=full_album_id_list, atype=Album.CURATED)
     for a in albums:
-        first_albumphoto = AlbumPhoto.objects.filter(photo_id=photo_obj.id, album=a).first()
-        if first_albumphoto:
+        if first_albumphoto := AlbumPhoto.objects.filter(photo_id=photo_obj.id, album=a).first():
             a.this_photo_curator = first_albumphoto.profile
     album = albums.first()
     next_photo = None
@@ -1664,7 +1662,7 @@ def mapview(request, photo_id=None, rephoto_id=None):
         area = Area.objects.filter(pk=selected_photo.area_id).first()
         photos_qs = photos_qs.filter(area=area, rephoto_of__isnull=True)
 
-    # If we using unfiltered view then we can just count all geotags
+    # If we are using unfiltered view then we can just count all geotags
     if select_all_photos:
         geotagging_user_count = GeoTag.objects.distinct('user').values('user').count()
         total_photo_count = photos_qs.count()
@@ -1676,7 +1674,8 @@ def mapview(request, photo_id=None, rephoto_id=None):
     geotagged_photo_count = photos_qs.distinct('id').filter(lat__isnull=False, lon__isnull=False).count()
 
     if geotagged_photo_count:
-        last_geotagged_photo_id = Photo.objects.order_by(F('latest_geotag').desc(nulls_last=True)).values('id').first()['id']
+        last_geotagged_photo_id = Photo.objects.order_by(F('latest_geotag').desc(nulls_last=True)).values('id').first()[
+            'id']
     else:
         last_geotagged_photo_id = None
 
@@ -1800,11 +1799,11 @@ def geotag_add(request):
         tagged_photo.set_calculated_fields()
         tagged_photo.latest_geotag = timezone.now()
         tagged_photo.save()
-        processed_tagged_photo = Photo.objects.filter(pk=tagged_photo.id).get()
+        processed_tagged_photo = Photo.objects.filter(pk=tagged_photo.id).first()
         context['estimated_location'] = [processed_tagged_photo.lat, processed_tagged_photo.lon]
         if processed_tagged_photo.azimuth:
             context['azimuth'] = processed_tagged_photo.azimuth
-        processed_geotag = GeoTag.objects.filter(pk=new_geotag.id).get()
+        processed_geotag = GeoTag.objects.filter(pk=new_geotag.id).first()
         if processed_geotag.origin == GeoTag.GAME:
             if len(tagged_photo.geotags.all()) == 1:
                 score = max(20, int(300 * trust))
@@ -1827,10 +1826,17 @@ def geotag_add(request):
                 azimuth_score = degree_error_point_array[int(difference)]
         processed_geotag.azimuth_score = azimuth_score
         processed_geotag.score = score + azimuth_score
-        processed_geotag.save()
+        processed_geotag.save(changed_fields=['azimuth_score', 'score'])
         context['current_score'] = processed_geotag.score + flip_points
-        Points(user=profile, action=Points.GEOTAG, geotag=processed_geotag, points=processed_geotag.score,
-               created=timezone.now(), photo=processed_geotag.photo).save()
+        Points.objects.create(
+            user=profile,
+            action=Points.GEOTAG,
+            geotag=processed_geotag,
+            points=processed_geotag.score,
+            created=timezone.now(),
+            photo=processed_geotag.photo
+        )
+
         geotags_for_this_photo = GeoTag.objects.filter(photo=tagged_photo)
         context['new_geotag_count'] = geotags_for_this_photo.distinct('user').count()
         context['heatmap_points'] = [[x.lat, x.lon] for x in geotags_for_this_photo]
@@ -1867,20 +1873,22 @@ def geotag_add(request):
 
 def geotag_confirm(request):
     form = ConfirmGeotagForm(request.POST)
-    profile = request.get_user().profile
+    user = request.get_user()
+    profile = user.profile
     context = {
         'message': 'OK'
     }
     if form.is_valid():
         p = form.cleaned_data['photo']
         # Check if user is eligible to confirm location (again)
-        last_confirm_geotag_by_this_user_for_p = p.geotags.filter(user_id=profile.id, type=GeoTag.CONFIRMATION) \
-            .order_by('-created').first()
-        if not last_confirm_geotag_by_this_user_for_p or (p.lat and p.lon and (
-                last_confirm_geotag_by_this_user_for_p.lat != p.lat
-                and last_confirm_geotag_by_this_user_for_p.lon != p.lon)):
-            trust = _calc_trustworthiness(request.get_user().id)
-            confirmed_geotag = GeoTag(
+        last_confirmed_geotag = p.geotags.filter(
+            user_id=profile.id,
+            type=GeoTag.CONFIRMATION
+        ).order_by('-created').first()
+
+        if not last_confirmed_geotag or (last_confirmed_geotag.lat != p.lat and last_confirmed_geotag.lon != p.lon):
+            trust = _calc_trustworthiness(user.id)
+            confirmed_geotag = GeoTag.objects.create(
                 lat=p.lat,
                 lon=p.lon,
                 origin=GeoTag.MAP_VIEW,
@@ -1897,11 +1905,13 @@ def geotag_confirm(request):
             if p.azimuth:
                 confirmed_geotag.azimuth = p.azimuth
                 confirmed_geotag.azimuth_correct = True
-            confirmed_geotag.save()
-            Points(user=profile, action=Points.GEOTAG, geotag=confirmed_geotag, points=confirmed_geotag.score,
-                   created=timezone.now(), photo=p).save()
+                confirmed_geotag.save(changed_fields=['azimuth', 'azimuth_correct'])
+
+            Points.objects.create(user=profile, action=Points.GEOTAG, geotag=confirmed_geotag,
+                                  points=confirmed_geotag.score,
+                                  created=timezone.now(), photo=p)
             p.latest_geotag = timezone.now()
-            p.save()
+            p.save(changed_fields=['latest_geotag'])
             profile.set_calculated_fields()
             profile.save()
         context['new_geotag_count'] = GeoTag.objects.filter(photo=p).distinct('user').count()
@@ -2453,7 +2463,7 @@ def curator_photo_upload_handler(request):
                             if new_photo.rotated is not None and new_photo.rotated > 0:
                                 photo_path = f'{settings.MEDIA_ROOT}/{str(new_photo.image)}'
                                 img = Image.open(photo_path)
-                                rot = img.rotate(new_photo.rotated, expand=1)
+                                rot = img.rotate(new_photo.rotated, expand=True)
                                 rot.save(photo_path)
                                 new_photo.width, new_photo.height = rot.size
                             if new_photo.flip:
@@ -2464,17 +2474,17 @@ def curator_photo_upload_handler(request):
                             context['photos'][k] = {}
                             context['photos'][k]['message'] = _('OK')
 
-                            lat=None
-                            lng=None
+                            lat = None
+                            lng = None
                             try:
                                 if 'latitude' in upload_form.cleaned_data \
-                                   and upload_form.cleaned_data['latitude'] !=None \
-                                   and upload_form.cleaned_data['latitude']>0 \
-                                   and 'longitude' in upload_form.cleaned_data \
-                                   and upload_form.cleaned_data['longitude'] !=None \
-                                   and upload_form.cleaned_data['longitude']>0: 
-                                        lat = upload_form.cleaned_data['latitude']
-                                        lng = upload_form.cleaned_data['longitude']
+                                        and upload_form.cleaned_data['latitude'] \
+                                        and upload_form.cleaned_data['latitude'] > 0 \
+                                        and 'longitude' in upload_form.cleaned_data \
+                                        and upload_form.cleaned_data['longitude'] \
+                                        and upload_form.cleaned_data['longitude'] > 0:
+                                    lat = upload_form.cleaned_data['latitude']
+                                    lng = upload_form.cleaned_data['longitude']
                             except:
                                 print("lat,lng conversion failed")
 
@@ -2494,7 +2504,7 @@ def curator_photo_upload_handler(request):
                                 source_geotag.save()
                                 new_photo.latest_geotag = source_geotag.created
                                 new_photo.set_calculated_fields()
-                            new_photo.image
+
                             new_photo.save()
                             new_photo.set_aspect_ratio()
                             new_photo.add_to_source_album()
@@ -2701,11 +2711,11 @@ def csv_import(request):
                         existing_file_list.append(upload_folder + name)
                         os.remove(f'{import_folder}/{name}')
                 else:
-                    def del_evenReadonly(action, name, exc):
+                    def del_even_ro(action, name, exc):
                         os.chmod(name, stat.S_IWRITE)
                         os.remove(name)
 
-                    shutil.rmtree(f'{import_folder}/{name}', onerror=del_evenReadonly)
+                    shutil.rmtree(f'{import_folder}/{name}', onerror=del_even_ro)
             os.remove(zip_filename)
             os.rmdir(import_folder)
 
@@ -3006,18 +3016,18 @@ def generate_still_from_video(request):
     if form.is_valid():
         a = form.cleaned_data['album']
         vid = form.cleaned_data['video']
-        time = form.cleaned_data['timestamp']
+        timestamp = form.cleaned_data['timestamp']
         still = Photo.objects.filter(video=vid, video_timestamp=time).first()
         if not still:
             vidcap = cv2.VideoCapture(vid.file.path)
-            vidcap.set(0, time)
+            vidcap.set(0, timestamp)
             success, image = vidcap.read()
             source = Source.objects.filter(name='AJP').first()
             if success:
                 tmp = NamedTemporaryFile(suffix='.jpeg', delete=True)
                 cv2.imwrite(tmp.name, image)
-                hours, milliseconds = divmod(time, 3600000)
-                minutes, milliseconds = divmod(time, 60000)
+                hours, milliseconds = divmod(timestamp, 3600000)
+                minutes, milliseconds = divmod(timestamp, 60000)
                 seconds = float(milliseconds) / 1000
                 s = "%i:%02i:%06.3f" % (hours, minutes, seconds)
                 description = _('Still from "%(film)s" at %(time)s') % {'film': vid.name, 'time': s}
@@ -3026,7 +3036,7 @@ def generate_still_from_video(request):
                     user=profile,
                     types='film,still,frame,snapshot,filmi,kaader,pilt',
                     video=vid,
-                    video_timestamp=time,
+                    video_timestamp=timestamp,
                     source=source
                 )
                 still.save()
@@ -3038,14 +3048,14 @@ def generate_still_from_video(request):
                     File(tmp))
                 still.light_save()
                 AlbumPhoto(album=a, photo=still, profile=profile, type=AlbumPhoto.STILL).save()
-                Points(
+                Points.objects.create(
                     user=profile,
                     action=Points.FILM_STILL,
                     photo=still,
                     album=a,
                     points=50,
                     created=still.created
-                ).save()
+                )
                 a.set_calculated_fields()
                 a.save()
                 still.add_to_source_album()
@@ -3095,12 +3105,11 @@ def upload_photo_to_wikimedia_commons(request, path):
         social_account = SocialAccount.objects.filter(user=request.user).first()
         social_token = SocialToken.objects.filter(account=social_account, expires_at__gt=datetime.date.today()).last()
     if social_token:
-        S = requests.Session()
-        URL = "https://commons.wikimedia.org/w/api.php"
-        FILE_PATH = path
+        session = requests.Session()
+        url = "https://commons.wikimedia.org/w/api.php"
 
         # Step 1: Retrieve a login token
-        PARAMS_1 = {
+        params_1 = {
             "action": "query",
             "meta": "tokens",
             "type": "login",
@@ -3111,58 +3120,55 @@ def upload_photo_to_wikimedia_commons(request, path):
             "Authentication": "Bearer " + social_token.token
         }
 
-        R = S.get(url=URL, params=PARAMS_1, headers=headers)
-        DATA = R.json()
-        print(DATA)
+        response = session.get(url=url, params=params_1, headers=headers)
+        data = response.json()
 
-        LOGIN_TOKEN = DATA["query"]["tokens"]["logintoken"]
+        login_token = data["query"]["tokens"]["logintoken"]
 
-        # Step 2: Send a post request to login. Use of main account for login is not
+        # Step 2: Send a post request to log in. Use of main account for login is not
         # supported. Obtain credentials via Special:BotPasswords
         # (https://www.mediawiki.org/wiki/Special:BotPasswords) for lgname & lgpassword
-        PARAMS_2 = {
+        params_2 = {
             "action": "login",
             "format": "json",
-            "lgtoken": LOGIN_TOKEN
+            "lgtoken": login_token
         }
 
-        R = S.post(URL, data=PARAMS_2, headers=headers)
-        DATA = R.json()
-        print(DATA)
+        response = session.post(url, data=params_2, headers=headers)
+        data = response.json()
 
         # Step 3: Obtain a CSRF token
-        PARAMS_3 = {
+        params_3 = {
             "action": "query",
             "meta": "tokens",
             "format": "json"
         }
 
-        R = S.get(url=URL, params=PARAMS_3, headers=headers)
+        response = session.get(url=url, params=params_3, headers=headers)
 
-        DATA = R.json()
-        print(DATA)
+        data = response.json()
 
-        CSRF_TOKEN = DATA["query"]["tokens"]["csrftoken"]
+        csrf_token = data["query"]["tokens"]["csrftoken"]
 
         # Step 4: Post request to upload a file directly
-        PARAMS_4 = {
+        params_4 = {
             "action": "upload",
             "filename": "file_1.jpg",
             "format": "json",
-            "token": CSRF_TOKEN,
+            "token": csrf_token,
             "ignorewarnings": 1
         }
 
-        FILE = {'file': ('file_1.jpg', open(FILE_PATH, 'rb'), 'multipart/form-data')}
+        file = {'file': ('file_1.jpg', open(path, 'rb'), 'multipart/form-data')}
 
-        R = S.post(URL, files=FILE, data=PARAMS_4)
-        DATA = R.json()
-        print(DATA)
+        response = session.post(url, files=file, data=params_4)
+        data = response.json()
+        print(data)
 
 
 def rephoto_upload_settings_modal(request):
     form = None
-    if (hasattr(request.user, 'profile')):
+    if hasattr(request.user, 'profile'):
         profile = request.user.profile
         form = RephotoUploadSettingsForm(
             data={'wikimedia_commons_rephoto_upload_consent': profile.wikimedia_commons_rephoto_upload_consent})
@@ -3214,7 +3220,7 @@ def compare_photos_generic(request, photo_id=None, photo_id_2=None, view='compar
         second_photo = similar_photos.filter(from_photo=photo_obj2).first()
     if first_photo is not None:
         next_pair = first_photo
-    elif (second_photo is not None):
+    elif second_photo:
         next_pair = second_photo
     else:
         if compare_all is True:
@@ -3314,7 +3320,7 @@ def get_comment_like_count(request, comment_id):
 
 
 class CommentList(View):
-    '''Render comment list. Only comment that not marked as deleted should be shown.'''
+    'Render comment list. Only comment that not marked as deleted should be shown.'
     template_name = 'comments/list.html'
     comment_model = django_comments.get_model()
     form_class = django_comments.get_form()
@@ -3428,6 +3434,7 @@ def terms(request):
 def me(request):
     return redirect('user', user_id=request.get_user().profile.id)
 
+
 def oauthdone(request):
     user = request.user
     form = OauthDoneForm(request.GET)
@@ -3435,21 +3442,21 @@ def oauthdone(request):
         if user.is_anonymous:
             return HttpResponse('No user found', status=404)
 
-        provider=form.cleaned_data['provider']
-        allowed_providers=[ 'facebook', 'google', 'wikimedia-commons']
+        provider = form.cleaned_data['provider']
+        allowed_providers = ['facebook', 'google', 'wikimedia-commons']
         if provider not in allowed_providers:
             return HttpResponse('Provider not in allowed providers.' + provider, status=404)
 
         app = SocialApp.objects.get_current(provider)
 
-        if app == None:
+        if not app:
             return HttpResponse('Provider ' + provider + ' not found.', status=404)
 
-        social_token=SocialToken.objects.get(account__user_id=user.id, app=app)
-        if social_token == None:
+        social_token = SocialToken.objects.get(account__user_id=user.id, app=app)
+        if not social_token:
             return HttpResponse('Token not found.', status=404)
 
-        token=social_token.token
+        token = social_token.token
         context = {
             'route': '/login',
             'provider': provider,
@@ -3458,6 +3465,7 @@ def oauthdone(request):
         return render(request, 'socialaccount/oauthdone.html', context)
 
     return HttpResponse('No user found', status=404)
+
 
 def user(request, user_id):
     token = ProfileMergeToken.objects.filter(source_profile_id=user_id, used__isnull=False).order_by('used').first()
@@ -3471,25 +3479,33 @@ def user(request, user_id):
     if profile.user.is_anonymous:
         commented_pictures_count = 0
     else:
-        commented_pictures_count = MyXtdComment.objects.filter(is_removed=False, user_id=profile.id).order_by('object_pk').distinct('object_pk').count()
+        commented_pictures_count = MyXtdComment.objects.filter(is_removed=False, user_id=profile.id).order_by(
+            'object_pk').distinct('object_pk').count()
 
-    curated_pictures_count            = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=True).count()
-    datings_count                     = Dating.objects.filter(profile_id=profile.id).distinct('photo').count()
-    face_annotations_count            = FaceRecognitionRectangle.objects.filter(user_id=profile.id).count()
-    face_annotations_pictures_count   = FaceRecognitionRectangle.objects.filter(user_id=profile.id).distinct('photo').count()
-    geotags_count                     = GeoTag.objects.filter(user_id=profile.id).exclude(type=GeoTag.CONFIRMATION).distinct('photo').count()
-    geotag_confirmations_count        = GeoTag.objects.filter(user_id=profile.id, type=GeoTag.CONFIRMATION).distinct('photo').count()
-    object_annotations_count          = ObjectDetectionAnnotation.objects.filter(user_id=profile.id).count()
-    object_annotations_pictures_count = ObjectDetectionAnnotation.objects.filter(user_id=profile.id).distinct('photo').count()
-    photolikes_count                  = PhotoLike.objects.filter(profile_id=profile.id).distinct('photo').count()
-    rephoto_count                     = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=False).count()
-    rephotographed_pictures_count     = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=False).order_by('rephoto_of_id').distinct('rephoto_of_id').count()
-    similar_pictures_count            = ImageSimilaritySuggestion.objects.filter(proposer=profile).distinct('image_similarity').count()
-    transcriptions_count              = Transcription.objects.filter(user=profile).distinct('photo').count()
+    curated_pictures_count = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=True).count()
+    datings_count = Dating.objects.filter(profile_id=profile.id).distinct('photo').count()
+    face_annotations_count = FaceRecognitionRectangle.objects.filter(user_id=profile.id).count()
+    face_annotations_pictures_count = FaceRecognitionRectangle.objects.filter(user_id=profile.id).distinct(
+        'photo').count()
+    geotags_count = GeoTag.objects.filter(user_id=profile.id).exclude(type=GeoTag.CONFIRMATION).distinct(
+        'photo').count()
+    geotag_confirmations_count = GeoTag.objects.filter(user_id=profile.id, type=GeoTag.CONFIRMATION).distinct(
+        'photo').count()
+    object_annotations_count = ObjectDetectionAnnotation.objects.filter(user_id=profile.id).count()
+    object_annotations_pictures_count = ObjectDetectionAnnotation.objects.filter(user_id=profile.id).distinct(
+        'photo').count()
+    photolikes_count = PhotoLike.objects.filter(profile_id=profile.id).distinct('photo').count()
+    rephoto_count = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=False).count()
+    rephotographed_pictures_count = Photo.objects.filter(user_id=profile.id, rephoto_of__isnull=False).order_by(
+        'rephoto_of_id').distinct('rephoto_of_id').count()
+    similar_pictures_count = ImageSimilaritySuggestion.objects.filter(proposer=profile).distinct(
+        'image_similarity').count()
+    transcriptions_count = Transcription.objects.filter(user=profile).distinct('photo').count()
 
     photo_viewpoint_elevation_suggestions_ids = PhotoViewpointElevationSuggestion.objects.filter(
         proposer_id=profile.id).distinct('photo').values_list('photo_id', flat=True)
-    photo_scene_suggestions_count = PhotoSceneSuggestion.objects.filter(proposer_id=profile.id).distinct('photo').exclude(
+    photo_scene_suggestions_count = PhotoSceneSuggestion.objects.filter(proposer_id=profile.id).distinct(
+        'photo').exclude(
         photo_id__in=photo_viewpoint_elevation_suggestions_ids).count()
 
     action_count = commented_pictures_count + transcriptions_count + \
@@ -3499,8 +3515,8 @@ def user(request, user_id):
                    similar_pictures_count + geotag_confirmations_count + \
                    photolikes_count + photo_scene_suggestions_count + len(photo_viewpoint_elevation_suggestions_ids)
 
-    user_points=profile.points.aggregate(user_points=Sum('points'))['user_points'] 
-    if user_points == None:
+    user_points = profile.points.aggregate(user_points=Sum('points'))['user_points']
+    if not user_points:
         user_points = 0
 
     context = {
@@ -3622,7 +3638,7 @@ def user_settings(request):
 
 def profile_change_display_name(request):
     form = None
-    if (hasattr(request.user, 'profile')):
+    if hasattr(request.user, 'profile'):
         form = ChangeDisplayNameForm(data={
             'display_name': request.user.profile.display_name
         })
@@ -3636,7 +3652,7 @@ def profile_change_display_name(request):
 def merge_accounts(request):
     context = {}
     token = request.GET.get('token')
-    if (hasattr(request.user, 'profile')):
+    if hasattr(request.user, 'profile'):
         context['profile'] = request.user.profile
     if token is None:
         if 'profile' in context and request.user.profile.is_legit():
@@ -3676,7 +3692,7 @@ def geotaggers_modal(request, photo_id):
             'user').prefetch_related('user')
     geotags = sorted(geotags, key=operator.attrgetter('created'), reverse=True)
     geotaggers = []
-    if (len(geotags) < 1):
+    if len(geotags) < 1:
         return HttpResponse('No geotags found for image', status=404)
     for geotag in geotags:
         if geotag.user is None:
@@ -3693,9 +3709,9 @@ def geotaggers_modal(request, photo_id):
     return render(request, 'geotaggers/_geotaggers_modal_content.html', context)
 
 
-def supporters(request, year=None):
+def supporters(request):
     context = {}
-    supporters = {
+    sponsors = {
         'Kulka': {
             'alternate_text': _('KulKa logo'),
             'url': 'https://www.kulka.ee/et' if request.LANGUAGE_CODE == 'et' else 'https://www.kulka.ee/en',
@@ -3746,26 +3762,24 @@ def supporters(request, year=None):
         }
 
     }
-    current_supporters = [
-        supporters['Wikimedia Finland'],
-        supporters['Republic of Estonia National Heritage Board'],
-        supporters['Kulka'],
-        supporters['Year of Digital Culture 2020']
+    current_sponsors = [
+        sponsors['Wikimedia Finland'],
+        sponsors['Republic of Estonia National Heritage Board'],
+        sponsors['Kulka'],
+        sponsors['Year of Digital Culture 2020']
     ]
 
-    previous_supporters = [
-        supporters['Kulka'],
-        supporters['Ministry of Culture'],
-        supporters['EV100'],
-        supporters['Ministry of Education'],
-        supporters['National Foundation of Civil Society']
+    previous_sponsors = [
+        sponsors['Kulka'],
+        sponsors['Ministry of Culture'],
+        sponsors['EV100'],
+        sponsors['Ministry of Education'],
+        sponsors['National Foundation of Civil Society']
     ]
 
-    supporters = Supporter.objects.all()
-
-    context['current_supporters'] = current_supporters
-    context['previous_supporters'] = previous_supporters
-    context['supporters'] = supporters
+    context['current_sponsors'] = current_sponsors
+    context['previous_sponsors'] = previous_sponsors
+    context['sponsors'] = Supporter.objects.all()
 
     return render(request, 'donate/supporters.html', context)
 

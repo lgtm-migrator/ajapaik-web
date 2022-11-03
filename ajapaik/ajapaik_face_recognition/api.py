@@ -24,9 +24,8 @@ class AddSubjectData(AjapaikAPIView):
             person_album = Album.objects.filter(pk=newSubjectId).first()
         new_rectangle = FaceRecognitionRectangle.objects.get(pk=annotation_id)
         if (person_album and not AlbumPhoto.objects.filter(photo=new_rectangle.photo, album=person_album).exists()):
-            albumPhoto = AlbumPhoto(album=person_album, photo=new_rectangle.photo, type=AlbumPhoto.FACE_TAGGED,
-                                    profile=request.user.profile)
-            albumPhoto.save()
+            AlbumPhoto(album=person_album, photo=new_rectangle.photo, type=AlbumPhoto.FACE_TAGGED,
+                       profile=request.user.profile)
             person_album.set_calculated_fields()
             person_album.save()
 
@@ -92,10 +91,10 @@ class Annotation(AjapaikAPIView):
             if annotation.subject_consensus \
             else None
         return JsonResponse(
-                {
-                    'id': annotation.id,
-                    'user_id': user_id,
-                    'user_name': user_name,
-                    'photo_count': photo_count
-                }
-            )
+            {
+                'id': annotation.id,
+                'user_id': user_id,
+                'user_name': user_name,
+                'photo_count': photo_count
+            }
+        )
