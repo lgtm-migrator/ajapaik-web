@@ -4,7 +4,7 @@ from ajapaik.ajapaik_object_recognition.domain.annotation_remove_request import 
 from ajapaik.ajapaik_object_recognition.models import ObjectDetectionAnnotation
 
 
-def remove_annotation(annotation_remove_request: AnnotationRemove) -> bool:
+def remove_annotation(annotation_remove_request: AnnotationRemove) -> None:
     object_detection_annotation = ObjectDetectionAnnotation.objects.get(
         pk=annotation_remove_request.annotation_id
     )
@@ -19,8 +19,5 @@ def remove_annotation(annotation_remove_request: AnnotationRemove) -> bool:
             photo.latest_annotation = None
             photo.first_annotation = None
             photo.light_save(changed_fields=['annotation_count', 'first_annotation', 'latest_annotation'])
-            return True
 
         photo.light_save(changed_fields=['annotation_count'])
-
-    return True

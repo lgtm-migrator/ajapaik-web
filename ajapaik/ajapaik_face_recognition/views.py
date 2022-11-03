@@ -179,12 +179,7 @@ def remove_annotation(request: HttpRequest, annotation_id: int) -> HttpResponse:
         return response.not_supported()
 
     face_annotation_remove_request = FaceAnnotationRemoveRequest(annotation_id, request.user.id)
-    has_removed_successfully = face_annotation_delete_service.remove_annotation(face_annotation_remove_request)
-
-    if has_removed_successfully:
-        return response.success()
-
-    return response.action_failed()
+    face_annotation_delete_service.remove_annotation(face_annotation_remove_request)
 
 
 def get_subject_data_empty(request):

@@ -248,12 +248,13 @@ def get_album_info_modal_content_old(request):
 
     return HttpResponse('Error')
 
+
 # 2022-11-02 faster rewrite of get_album_info_modal_content() query
 # number of rephoto_user_count and geotagging_user_count is 1 smaller
 # than old because different way to handle NULL:s
 
 def get_album_info_modal_content(request):
-    starttime=time()
+    starttime = time()
 
     profile = request.get_user().profile
     form = AlbumInfoModalForm(request.GET)
@@ -271,40 +272,39 @@ def get_album_info_modal_content(request):
         for sa in album.subalbums.filter(atype__in=[Album.CURATED, Album.PERSON]):
             subalbums.append(sa.id)
 
-        rephotostats=AlbumStats.get_rephoto_stats_sql(subalbums, profile.pk)
+        rephotostats = AlbumStats.get_rephoto_stats_sql(subalbums, profile.pk)
 
-        context['user_geotagged_photo_count']     = AlbumStats.get_user_geotagged_photo_count_sql(subalbums, profile.pk)
-        context['geotagging_user_count']          = AlbumStats.get_geotagging_user_count_sql(subalbums)
-        context['rephoto_count']                  = rephotostats["rephoto_count"]
-        context['rephoto_user_count']             = rephotostats["rephoto_user_count"] 
-        context['rephotographed_photo_count']     = rephotostats["rephotographed_photo_count"] 
-        context['user_rephoto_count']             = rephotostats["user_rephoto_count"]
-        context['user_rephotographed_photo_count']= rephotostats["user_rephotographed_photo_count"]
-        context['user_made_all_rephotos']         = rephotostats['user_made_all_rephotos']
-        context['similar_photo_count']            = album.similar_photo_count_with_subalbums 
-        context['confirmed_similar_photo_count']  = album.confirmed_similar_photo_count_with_subalbums
-        context['album_curators']                 = AlbumStats.get_album_curators_sql([album.id])
+        context['user_geotagged_photo_count'] = AlbumStats.get_user_geotagged_photo_count_sql(subalbums, profile.pk)
+        context['geotagging_user_count'] = AlbumStats.get_geotagging_user_count_sql(subalbums)
+        context['rephoto_count'] = rephotostats["rephoto_count"]
+        context['rephoto_user_count'] = rephotostats["rephoto_user_count"]
+        context['rephotographed_photo_count'] = rephotostats["rephotographed_photo_count"]
+        context['user_rephoto_count'] = rephotostats["user_rephoto_count"]
+        context['user_rephotographed_photo_count'] = rephotostats["user_rephotographed_photo_count"]
+        context['user_made_all_rephotos'] = rephotostats['user_made_all_rephotos']
+        context['similar_photo_count'] = album.similar_photo_count_with_subalbums
+        context['confirmed_similar_photo_count'] = album.confirmed_similar_photo_count_with_subalbums
+        context['album_curators'] = AlbumStats.get_album_curators_sql([album.id])
 
         if album.lat and album.lon:
             ref_location = Point(x=album.lon, y=album.lat, srid=4326)
             context['nearby_albums'] = Album.objects \
                                            .filter(
-                    geography__dwithin=(ref_location, D(m=5000)),
-                    is_public=True,
-                    atype=Album.CURATED,
-                    id__ne=album.id
-                ).order_by('?')[:3]
+                geography__dwithin=(ref_location, D(m=5000)),
+                is_public=True,
+                atype=Album.CURATED,
+                id__ne=album.id
+            ).order_by('?')[:3]
 
         album_id_str = str(album.id)
         context['share_game_link'] = f'{request.build_absolute_uri(reverse("game"))}?album={album_id_str}'
         context['share_map_link'] = f'{request.build_absolute_uri(reverse("map"))}?album={album_id_str}'
         context['share_gallery_link'] = f'{request.build_absolute_uri(reverse("frontpage"))}?album={album_id_str}'
-        context['execution_time']                 = starttime-time()
+        context['execution_time'] = starttime - time()
 
         return render(request, 'info/_info_modal_content.html', context)
 
     return HttpResponse('Error')
-
 
 
 def _get_exif_data(img):
@@ -1082,15 +1082,15 @@ def _get_filtered_data_for_frontpage(request, album_id=None, page_override=None)
         if not filter_form.cleaned_data['backsides'] and not order2 == 'transcriptions':
             photos = photos.filter(back_of__isnull=True)
 
-# FIXME: values aren't used
-# idea is to show page where the selected photo is
-# Warning: all photos is very slow
-#
-#        if requested_photo:
-#            ids = list(photos.values_list('id', flat=True))
-#            if requested_photo.id in ids:
-#                photo_count_before_requested = ids.index(requested_photo.id)
-#                page = ceil(float(photo_count_before_requested) / float(page_size))
+        # FIXME: values aren't used
+        # idea is to show page where the selected photo is
+        # Warning: all photos is very slow
+        #
+        #        if requested_photo:
+        #            ids = list(photos.values_list('id', flat=True))
+        #            if requested_photo.id in ids:
+        #                photo_count_before_requested = ids.index(requested_photo.id)
+        #                page = ceil(float(photo_count_before_requested) / float(page_size))
 
         # Note seeking (start:end) has been here done when results are limited using photo_ids above
         if albumsize_before_sorting:
@@ -3135,7 +3135,6 @@ def upload_photo_to_wikimedia_commons(request, path):
         }
 
         response = session.post(url, data=params_2, headers=headers)
-        data = response.json()
 
         # Step 3: Obtain a CSRF token
         params_3 = {

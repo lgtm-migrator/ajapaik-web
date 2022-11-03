@@ -1372,11 +1372,12 @@ class ImageSimilarity(Model):
         if suggestion.similarity_type:
             suggestion_types = {0, 1, 2}
             suggestion_types.remove(suggestion.similarity_type)
+            suggestion_types_list = list(suggestion_types)
 
             if suggestions.filter(similarity_type=suggestion.similarity_type).count() >= (
-                    suggestions.filter(similarity_type=suggestion_types[0]).count() - 1) \
+                    suggestions.filter(similarity_type=suggestion_types_list[0]).count() - 1) \
                     and suggestions.filter(similarity_type=suggestion.similarity_type).count() >= (
-                    suggestions.filter(similarity_type=suggestion_types[1]).count() - 1):
+                    suggestions.filter(similarity_type=suggestion_types_list[1]).count() - 1):
 
                 if suggestion.similarity_type == 0:
                     has_similar = ImageSimilarity.objects.filter(
