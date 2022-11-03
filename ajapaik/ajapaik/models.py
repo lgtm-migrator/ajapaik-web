@@ -996,7 +996,7 @@ class Photo(Model):
                 object_recognition_rectangle.x2 = self.width - top
                 object_recognition_rectangle.y2 = right
                 object_recognition_rectangle.x1 = self.width - bottom
-            object_recognition_rectangle.save(changed_fields['x1', 'x2', 'y1', 'y2'])
+            object_recognition_rectangle.save(changed_fields=['x1', 'x2', 'y1', 'y2'])
 
         self.light_save()
 
@@ -1374,9 +1374,9 @@ class ImageSimilarity(Model):
             suggestion_types.remove(suggestion.similarity_type)
 
             if suggestions.filter(similarity_type=suggestion.similarity_type).count() >= (
-                    suggestions.filter(similarity_type=second_suggestion).count() - 1) \
+                    suggestions.filter(similarity_type=suggestion_types[0]).count() - 1) \
                     and suggestions.filter(similarity_type=suggestion.similarity_type).count() >= (
-                    suggestions.filter(similarity_type=first_suggestion).count() - 1):
+                    suggestions.filter(similarity_type=suggestion_types[1]).count() - 1):
 
                 if suggestion.similarity_type == 0:
                     has_similar = ImageSimilarity.objects.filter(
