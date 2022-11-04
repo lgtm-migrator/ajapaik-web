@@ -47,7 +47,7 @@ class Command(BaseCommand):
             for s in sets:
                 if s.find('d:setSpec', ns).text == museum_name:
                     source_description = s.find('d:setName', ns).text
-                    source = Source.objects.create(name=museum_name, description=source_description)
+                    Source.objects.create(name=museum_name, description=source_description)
         source = Source.objects.filter(name=museum_name).first()
 
         dates = []
@@ -92,8 +92,6 @@ class Command(BaseCommand):
                 try:
                     locations = []
                     person_album_ids = []
-                    creation_date_earliest = None
-                    creation_date_latest = None
                     external_id = rec.find(f'{header}d:identifier', ns).text \
                         if rec.find(f'{header}d:identifier', ns) is not None \
                         else None
@@ -161,7 +159,6 @@ class Command(BaseCommand):
                     creation_date_latest = None
                     date_prefix_earliest = None
                     date_prefix_latest = None
-                    date_earliest_has_suffix = False
                     date_latest_has_suffix = False
                     events = rec.findall(f'{event_wrap}lido:eventSet/lido:event', ns)
                     if events is not None and len(events) > 0:
@@ -191,7 +188,7 @@ class Command(BaseCommand):
                     if author is not None:
                         photo.author = author
                     photo.add_to_source_album()
-                    if locations != []:
+                    if locations:
                         photo = add_geotag_from_address_to_photo(photo, locations)
 
                     photo = add_dating_to_photo(

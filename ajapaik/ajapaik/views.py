@@ -17,7 +17,6 @@ from io import StringIO
 from math import ceil
 from random import choice
 from time import strftime, strptime, time
-from typing import Optional
 from urllib.request import build_opener
 from uuid import uuid4
 from xml.etree import ElementTree as ET
@@ -102,7 +101,7 @@ Image.MAX_IMAGE_PIXELS = 933120000
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def image_thumb(request: Request, photo_id: Optional[int], thumb_size: int = 400, pseudo_slug=None):
+def image_thumb(request: Request, photo_id: int, thumb_size: int = 400, pseudo_slug=None):
     if 0 < thumb_size or thumb_size <= 400:
         thumb_size = 400
     else:
@@ -309,9 +308,9 @@ def get_album_info_modal_content(request):
     return HttpResponse('Error')
 
 
-def _get_exif_data(img):
+def _get_exif_data(img: Image):
     try:
-        exif = img._getexif()
+        exif = img.getexif()
     except (AttributeError, IOError, KeyError, IndexError):
         return None
 
@@ -832,7 +831,7 @@ def frontpage_async_albums(request):
     return HttpResponse(json.dumps(context), content_type='application/json')
 
 
-def _get_filtered_data_for_frontpage(request: Request, album_id: Optional[int] = None, page_override=None):
+def _get_filtered_data_for_frontpage(request: Request, album_id: int | None = None, page_override=None):
     start_time = time()
     profile = request.get_user().profile
     photos = Photo.objects.filter(rephoto_of__isnull=True)
@@ -1348,7 +1347,7 @@ def _make_fullscreen(p: Photo):
         return {'url': p.image.url, 'size': [p.image.width, p.image.height]}
 
 
-def videoslug(request: Request, video_id: Optional[int] = None, pseudo_slug=None):
+def videoslug(request: Request, video_id: int, pseudo_slug=None):
     video = get_object_or_404(Video, pk=video_id)
     if request.is_ajax():
         template = 'video/_video_modal.html'
@@ -1359,7 +1358,7 @@ def videoslug(request: Request, video_id: Optional[int] = None, pseudo_slug=None
 
 
 @ensure_csrf_cookie
-def photoslug(request: Request, photo_id: Optional[int] = None, pseudo_slug=None):
+def photoslug(request: Request, photo_id: int = None, pseudo_slug=None):
     # Because of some bad design decisions, we have a URL /photo, let's just give a random photo
     if photo_id is None:
         photo_id = Photo.objects.order_by('?').first().pk
@@ -1618,7 +1617,7 @@ def login_modal(request: Request):
 
 
 @ensure_csrf_cookie
-def mapview(request: Request, photo_id: Optional[int] = None, rephoto_id: Optional[int] = None):
+def mapview(request: Request, photo_id: int | None = None, rephoto_id: int | None = None):
     profile = request.get_user().profile
     area_selection_form = AreaSelectionForm(request.GET)
     game_album_selection_form = GameAlbumSelectionForm(request.GET)

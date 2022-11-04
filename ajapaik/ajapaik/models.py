@@ -163,10 +163,10 @@ def _make_fullscreen(photo):
     }
 
 
-def _get_pseudo_slug_for_photo(description, source_key, id):
-    if description is not None and description != '':
+def _get_pseudo_slug_for_photo(description: str, source_key: str, id: int):
+    if description:
         slug = '-'.join(slugify(description).split('-')[:6])[:60]
-    elif source_key is not None and source_key != '':
+    elif source_key:
         slug = slugify(source_key)
     else:
         slug = slugify(id)
@@ -224,12 +224,9 @@ class AlbumPhoto(Model):
         # ordering = ['-created']
 
     def __str__(self):
-        if self.profile:
-            profilename = self.profile.get_display_name
-        else:
-            profilename = 'None'
+        profile_name = self.profile and self.profile.get_display_name
 
-        return '%d - %d - %s - %s' % (self.album_id, self.photo_id, self.TYPE_CHOICES[self.type][1], profilename)
+        return f"{self.album_id} - {self.photo_id} - {self.TYPE_CHOICES[self.type][1]} - {profile_name}"
 
     def delete(self, *args, **kwargs):
         if self.album.atype == Album.CURATED:
@@ -1066,9 +1063,9 @@ class Photo(Model):
         position = (img.size[0] - mark.size[0] - padding, padding)
         layer.paste(mark, position)
         img = Image.composite(layer, img, layer)
-        tempfile_io = StringIO()
-        img.save(tempfile_io, format='JPEG')
-        image_file = InMemoryUploadedFile(tempfile_io, None, 'watermarked.jpg', 'image/jpeg', tempfile_io.len, None)
+        temp_file_io = StringIO()
+        img.save(temp_file_io, format='JPEG')
+        image_file = InMemoryUploadedFile(temp_file_io, None, 'watermarked.jpg', 'image/jpeg', temp_file_io.len, None)
 
         self.image.save('watermarked.jpg', image_file)
 
@@ -1164,26 +1161,26 @@ class Photo(Model):
         if self.aspect_ratio is None:
             self.set_aspect_ratio()
 
-    def add_to_source_album(self, *args, **kwargs):
-        if self.source_id is not None and self.source_id > 0:
-            sourceAlbum = Album.objects.filter(source_id=self.source_id).first()
-            if sourceAlbum is None:
-                sourceAlbum = Album(
+    def add_to_source_album(self):
+        if self.source_id:
+            source_album = Album.objects.filter(source_id=self.source_id).first()
+            if source_album is None:
+                source_album = Album(
                     name=self.source.name,
                     slug=self.source.name,
                     atype=Album.COLLECTION,
                     cover_photo=self,
                     source=self.source
                 )
-                sourceAlbum.save()
+                source_album.save()
 
             AlbumPhoto(
                 type=AlbumPhoto.COLLECTION,
                 photo=self,
-                album=sourceAlbum
+                album=source_album
             ).save()
 
-            sourceAlbum.save()
+            source_album.save()
 
     def light_save(self, *args, **kwargs):
         super(Photo, self).save(*args, **kwargs)
@@ -1402,11 +1399,12 @@ class ImageSimilarity(Model):
 
     def __add_or_update__(self):
         qs = ImageSimilarity.objects.filter(from_photo=self.from_photo, to_photo=self.to_photo)
-        points = 0
+
         if len(qs) == 0:
             points, suggestion = self.__add__()
         else:
             points, suggestion = self.__update__(qs)
+
         if points > 0:
             Points(
                 user=self.user_last_modified,
@@ -1546,7 +1544,7 @@ class Points(Model):
             ('user', 'image_similarity_confirmation'))
 
     def __str__(self):
-        return u'%d - %s - %d' % (self.user_id, self.ACTION_CHOICES[self.action], self.points)
+        return f"{self.user_id} - {self.ACTION_CHOICES[self.action]} - {self.points}"
 
 
 class Transcription(Model):
@@ -1880,7 +1878,7 @@ class Action(Model):
     params = json.JSONField(null=True, blank=True)
 
     @classmethod
-    def log(cls, my_type, params=None, related_object=None, request=None):
+    def log(cls, my_type, params=None, related_object=None):
         obj = cls(type=my_type, params=params)
         if related_object:
             obj.related_object = related_object

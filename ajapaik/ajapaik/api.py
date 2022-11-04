@@ -730,7 +730,7 @@ class AlbumPhotoInformation(AjapaikAPIView):
     API endpoint to retrieve album details.
     '''
 
-    def get(self, _, album_id, photo_id):
+    def get(self, album_id: int, photo_id: int):
         album = get_object_or_404(Album, id=album_id)
         album_photo = AlbumPhoto.objects.filter(
             album_id=album_id,

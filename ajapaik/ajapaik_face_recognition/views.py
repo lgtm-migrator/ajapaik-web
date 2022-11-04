@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import Counter, OrderedDict
-from typing import Optional, Iterable
+from typing import Iterable
 
 from django.db.models import Count
 from django.http import HttpResponse, HttpRequest, QueryDict
@@ -50,7 +50,7 @@ def add_subject(request: HttpRequest) -> HttpResponse:
     return render(request, 'add_subject.html', context, status=status)
 
 
-def _get_consensus_subject(rectangle: FaceRecognitionRectangle) -> Optional[int]:
+def _get_consensus_subject(rectangle: FaceRecognitionRectangle) -> int | None:
     class OrderedCounter(Counter, OrderedDict):
         pass
 
@@ -74,7 +74,7 @@ def save_subject_object(subject_album, rectangle, user_id, user_profile):
         origin=FaceRecognitionUserSuggestion.USER
     )
 
-    consensus_subject: Optional[int] = _get_consensus_subject(rectangle)
+    consensus_subject: int | None = _get_consensus_subject(rectangle)
     current_consensus_album = Album.objects.filter(pk=rectangle.subject_consensus_id).first()
 
     if consensus_subject != rectangle.subject_consensus_id:

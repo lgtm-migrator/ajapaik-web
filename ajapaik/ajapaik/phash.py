@@ -1,5 +1,4 @@
 from __future__ import (absolute_import, division, print_function)
-from typing import List
 
 import numpy
 from PIL import Image
@@ -12,7 +11,7 @@ class ImageHash(object):
         self.hash = binary_array
 
 
-def binaryhash_to_signed_integer(hash: List[bool]) -> int:
+def binaryhash_to_signed_integer(hash: list[bool]) -> int:
     result = ""
     for i in hash:
         if i:

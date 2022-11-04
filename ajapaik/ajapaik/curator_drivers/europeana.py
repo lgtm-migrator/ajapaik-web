@@ -38,8 +38,8 @@ def url_to_response_titles(url: str):
         d = json['object']
         a = d['aggregations'][0]
         p = d['proxies']
-        id = re.search('record(/.*?/.*?)$', url).group(1)
-        if not id:
+        record_id = re.search('record(/.*?/.*?)$', url).group(1)
+        if not record_id:
             return response
 
         if 'edmIsShownBy' in a:
@@ -85,7 +85,7 @@ def url_to_response_titles(url: str):
             'edmPlaceLatitude': latitude,
             'edmPlaceLongitude': longitude,
             'title': title,
-            'id': id,
+            'id': record_id,
             'guid': record_url
 
         }
@@ -142,7 +142,7 @@ class EuropeanaDriver(object):
         return response
 
     @staticmethod
-    def transform_response(response, remove_existing=False, current_page=1):
+    def transform_response(self, response, remove_existing=False, current_page=1):
         transformed = {
             'result': {
                 'firstRecordViews': [],

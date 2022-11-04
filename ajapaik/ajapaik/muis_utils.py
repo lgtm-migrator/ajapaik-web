@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import json
-from typing import Optional
 from xml.etree.ElementTree import Element
 
 import requests
@@ -214,7 +213,7 @@ def unstructured_date_to_structured_date(date, all_date_prefixes, is_later_date)
     return date
 
 
-def set_text_fields_from_muis(photo: Photo, dating: Optional[Dating], rec: Optional[Element],
+def set_text_fields_from_muis(photo: Photo, dating: Dating | None, rec: Element | None,
                               object_description_wraps: str,
                               ns: dict[str, str]):
     muis_description_field_pairs = {
@@ -522,7 +521,8 @@ def raw_date_to_date(raw_date):
     return date
 
 
-def add_dating_to_photo(photo, earliest_date, latest_date, date_prefix_earliest, date_prefix_latest, Dating, date_latest_has_suffix):
+def add_dating_to_photo(photo, earliest_date, latest_date, date_prefix_earliest, date_prefix_latest, Dating,
+                        date_latest_has_suffix):
     if latest_date is None and earliest_date is None:
         return photo
 

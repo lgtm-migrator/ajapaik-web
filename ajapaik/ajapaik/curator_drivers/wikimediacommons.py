@@ -102,7 +102,7 @@ class CommonsDriver(object):
         return response
 
     @staticmethod
-    def transform_response(response, remove_existing=False, current_page=1):
+    def transform_response(self, response, remove_existing=False, current_page=1):
         transformed = {
             'result': {
                 'firstRecordViews': [],

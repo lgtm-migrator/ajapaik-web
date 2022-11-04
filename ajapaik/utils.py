@@ -2,7 +2,6 @@ import datetime as datetime
 import hashlib
 import os
 from math import cos, sin, radians, atan2, sqrt
-from typing import Optional
 from urllib.request import Request
 
 from django.utils import timezone
@@ -19,7 +18,7 @@ def get_etag(_request: Request, image, _content):
     return None
 
 
-def last_modified(_request, image, _content) -> Optional[datetime.datetime]:
+def last_modified(_request, image, _content) -> datetime.datetime | None:
     if os.path.isfile(image):
         return datetime.fromtimestamp(os.path.getmtime(image))
 
