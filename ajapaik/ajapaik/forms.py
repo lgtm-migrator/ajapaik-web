@@ -30,7 +30,7 @@ class SignupForm(AllauthSignupForm):
 
     field_order = ['email', 'first_name', 'last_name', 'password1', 'password2', 'captcha']
 
-    def signup(self, request, user):
+    def signup(self, _, user):
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
         user.save(changed_fields=['first_name', 'last_name'])
@@ -349,8 +349,7 @@ class ApiPhotoUploadForm(forms.Form):
     accuracy = forms.FloatField(min_value=0, required=False)
     age = forms.FloatField(min_value=0, required=False)
 
-    # We expecting here a date but in model we have datetime field. So to do
-    # less work we define here DateTimeField.
+    # We are expecting a date here but in model we have datetime field.
     date = forms.DateTimeField(input_formats=['%d-%m-%Y'])
     scale = forms.FloatField()
     yaw = forms.FloatField()

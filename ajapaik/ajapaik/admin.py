@@ -16,6 +16,21 @@ from ajapaik.ajapaik.models import Photo, GeoTag, Profile, Source, Skip, Action,
     Location, LocationPhoto, ApplicationException
 
 
+def invert_colors(photo_str: str):
+    photo = Photo.objects.filter(pk=photo_str.split('/')[0]).first()
+    if photo:
+        photo_path = f'{settings.MEDIA_ROOT}/{str(photo.image)}'
+        img = Image.open(photo_path)
+        inverted_grayscale_image = ImageOps.invert(img).convert('L')
+        inverted_grayscale_image.save(photo_path)
+        photo.invert = not photo.invert
+        sorl_delete(photo.image, delete_file=False)
+        photo.light_save()
+        return HttpResponse('Photo inverted!')
+
+    return HttpResponse('Failed to invert photo!')
+
+
 class AlbumPhotoInline(admin.TabularInline):
     model = AlbumPhoto
     fields = 'album',
@@ -70,25 +85,11 @@ class PhotoAdmin(ModelAdmin):
                 geotag.save(changed_fields=["is_correct"])
         obj.save()
 
-    def _invertcolors(self, id):
-        photo = Photo.objects.filter(pk=id.split('/')[0]).first()
-        if photo:
-            photo_path = f'{settings.MEDIA_ROOT}/{str(photo.image)}'
-            img = Image.open(photo_path)
-            inverted_grayscale_image = ImageOps.invert(img).convert('L')
-            inverted_grayscale_image.save(photo_path)
-            photo.invert = not photo.invert
-            sorl_delete(photo.image, delete_file=False)
-            photo.light_save()
-            return HttpResponse('Photo inverted!')
-
-        return HttpResponse('Failed to invert photo!')
-
     extra_buttons = [
         {
-            'url': '_invertcolors',
+            'url': 'invert_colors',
             'textname': _('Invert colors'),
-            'func': _invertcolors
+            'func': invert_colors
         },
     ]
 

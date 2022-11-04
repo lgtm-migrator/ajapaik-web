@@ -1348,7 +1348,7 @@ def _make_fullscreen(p: Photo):
         return {'url': p.image.url, 'size': [p.image.width, p.image.height]}
 
 
-def videoslug(request: Request, video_id: Optional[int, None] = None, pseudo_slug=None):
+def videoslug(request: Request, video_id: Optional[int] = None, pseudo_slug=None):
     video = get_object_or_404(Video, pk=video_id)
     if request.is_ajax():
         template = 'video/_video_modal.html'
@@ -1359,7 +1359,7 @@ def videoslug(request: Request, video_id: Optional[int, None] = None, pseudo_slu
 
 
 @ensure_csrf_cookie
-def photoslug(request: Request, photo_id: Optional[int, None] = None, pseudo_slug=None):
+def photoslug(request: Request, photo_id: Optional[int] = None, pseudo_slug=None):
     # Because of some bad design decisions, we have a URL /photo, let's just give a random photo
     if photo_id is None:
         photo_id = Photo.objects.order_by('?').first().pk
@@ -1618,7 +1618,7 @@ def login_modal(request: Request):
 
 
 @ensure_csrf_cookie
-def mapview(request: Request, photo_id: Optional[int, None] = None, rephoto_id: Optional[int, None] = None):
+def mapview(request: Request, photo_id: Optional[int] = None, rephoto_id: Optional[int] = None):
     profile = request.get_user().profile
     area_selection_form = AreaSelectionForm(request.GET)
     game_album_selection_form = GameAlbumSelectionForm(request.GET)

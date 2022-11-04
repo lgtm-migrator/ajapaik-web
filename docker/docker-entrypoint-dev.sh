@@ -8,7 +8,6 @@ fi
 
 pip install -r requirements.txt
 
-cd /home/docker/ajapaik && python c \
-  && python manage.py loaddata licence object_detection_models \
+cd /home/docker/ajapaik && python manage.py loaddata licence object_detection_models \
   && python manage.py update_index && python manage.py compilemessages && \
   python manage.py runserver 0.0.0.0:8000

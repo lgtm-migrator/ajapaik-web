@@ -9,7 +9,7 @@ from ajapaik.ajapaik_object_recognition.models import ObjectDetectionAnnotation,
     ObjectAnnotationFeedback
 
 
-def autocomplete_form_factory(ac_model, custom_url=None, *args, **kwargs):
+def autocomplete_form_factory(ac_model, custom_url=None, **kwargs):
     m2m = ('photos', 'videos', 'similar_photos')
     if ac_model == Album:
         field_url_dict = {
