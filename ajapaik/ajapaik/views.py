@@ -46,7 +46,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.temp import NamedTemporaryFile
 from django.db.models import Sum, Q, Count, F, Min, Max
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.shortcuts import redirect, get_object_or_404, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -62,7 +62,6 @@ from django_comments.views.comments import post_comment
 from haystack.inputs import AutoQuery
 from haystack.query import SearchQuerySet
 from rest_framework.renderers import JSONRenderer
-from rest_framework.request import Request
 from sorl.thumbnail import delete
 from sorl.thumbnail import get_thumbnail
 
@@ -101,7 +100,7 @@ Image.MAX_IMAGE_PIXELS = 933120000
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def image_thumb(request: Request, photo_id: int, thumb_size: int = 400, pseudo_slug=None):
+def image_thumb(request: HttpRequest, photo_id: int, thumb_size: int = 400, pseudo_slug=None):
     if 0 < thumb_size or thumb_size <= 400:
         thumb_size = 400
     else:
@@ -127,12 +126,12 @@ def image_thumb(request: Request, photo_id: int, thumb_size: int = 400, pseudo_s
 
 @condition(etag_func=get_etag, last_modified_func=last_modified)
 @cache_control(must_revalidate=True)
-def get_image_thumb(request: Request, content):
+def get_image_thumb(request: HttpRequest, content):
     return HttpResponse(content, content_type='image/jpg')
 
 
 @cache_control(max_age=604800)
-def image_full(request: Request, photo_id=None, pseudo_slug=None):
+def image_full(request: HttpRequest, photo_id=None, pseudo_slug=None):
     p = get_object_or_404(Photo, id=photo_id)
     content = p.image.read()
 
@@ -353,7 +352,7 @@ def _extract_and_save_data_from_exif(photo_with_exif):
                     lon = 0 - lon
                 photo_with_exif.lat = lat
                 photo_with_exif.lon = lon
-                photo_with_exif.light_save(changed_fields=['lat', 'lon'])
+                photo_with_exif.light_save(update_fields=['lat', 'lon'])
             except:
                 print("convert_to_degrees() failed")
 
@@ -427,7 +426,7 @@ def _calculate_recent_activity_scores():
     recent_actors = Profile.objects.filter(pk__in=recent_action_dict.keys())
     for each in recent_actors:
         each.score_recent_activity = recent_action_dict[each.pk]
-        each.save(changed_fields=['score_recent_activity'])
+        each.save(update_fields=['score_recent_activity'])
     # Profile.objects.bulk_update(recent_actors, update_fields=['score_recent_activity'])
     # Check for people who somehow no longer have actions among the last 5000
     orphan_profiles = Profile.objects.filter(score_recent_activity__gt=0).exclude(pk__in=[x.pk for x in recent_actors])
@@ -831,7 +830,7 @@ def frontpage_async_albums(request):
     return HttpResponse(json.dumps(context), content_type='application/json')
 
 
-def _get_filtered_data_for_frontpage(request: Request, album_id: int | None = None, page_override=None):
+def _get_filtered_data_for_frontpage(request: HttpRequest, album_id: int | None = None, page_override=None):
     start_time = time()
     profile = request.get_user().profile
     photos = Photo.objects.filter(rephoto_of__isnull=True)
@@ -1243,7 +1242,7 @@ def _get_filtered_data_for_frontpage(request: Request, album_id: int | None = No
     return context
 
 
-def photo_selection(request: Request):
+def photo_selection(request: HttpRequest):
     form = PhotoSelectionForm(request.POST)
     if 'photo_selection' not in request.session:
         request.session['photo_selection'] = {}
@@ -1262,7 +1261,7 @@ def photo_selection(request: Request):
     return HttpResponse(json.dumps(request.session['photo_selection']), content_type='application/json')
 
 
-def list_photo_selection(request: Request):
+def list_photo_selection(request: HttpRequest):
     photos = None
     at_least_one_photo_has_location = False
     count_with_location = 0
@@ -1288,7 +1287,7 @@ def list_photo_selection(request: Request):
     return render(request, 'photo/selection/photo_selection.html', context)
 
 
-def upload_photo_selection(request: Request):
+def upload_photo_selection(request: HttpRequest):
     form = SelectionUploadForm(request.POST)
     context = {
         'ajapaik_facebook_link': settings.AJAPAIK_FACEBOOK_LINK,
@@ -1296,7 +1295,7 @@ def upload_photo_selection(request: Request):
     }
     profile = request.get_user().profile
     if form.is_valid() and profile.is_legit():
-        albums = Album.objects.filter(id__in=request.POST.getlist('albums'))
+        albums = Album.objects.filter(id__in=request.POST.getlist(key='albums'))
         photo_ids = json.loads(form.cleaned_data['selection'])
 
         if not albums.exists():
@@ -1322,7 +1321,7 @@ def upload_photo_selection(request: Request):
                                    created=timezone.now()))
                 except:  # noqa
                     pass
-                if a.cover_photo is None and p is not None:
+                if a.cover_photo is None and p:
                     a.cover_photo = p
 
         AlbumPhoto.objects.bulk_create(album_photos)
@@ -1347,7 +1346,7 @@ def _make_fullscreen(p: Photo):
         return {'url': p.image.url, 'size': [p.image.width, p.image.height]}
 
 
-def videoslug(request: Request, video_id: int, pseudo_slug=None):
+def videoslug(request: HttpRequest, video_id: int, pseudo_slug=None):
     video = get_object_or_404(Video, pk=video_id)
     if request.is_ajax():
         template = 'video/_video_modal.html'
@@ -1358,7 +1357,7 @@ def videoslug(request: Request, video_id: int, pseudo_slug=None):
 
 
 @ensure_csrf_cookie
-def photoslug(request: Request, photo_id: int = None, pseudo_slug=None):
+def photoslug(request: HttpRequest, photo_id: int = None, pseudo_slug=None):
     # Because of some bad design decisions, we have a URL /photo, let's just give a random photo
     if photo_id is None:
         photo_id = Photo.objects.order_by('?').first().pk
@@ -1597,7 +1596,7 @@ def photoslug(request: Request, photo_id: int = None, pseudo_slug=None):
     return render(request, template, context)
 
 
-def photo_upload_modal(request: Request, photo_id: int):
+def photo_upload_modal(request: HttpRequest, photo_id: int):
     photo = get_object_or_404(Photo, pk=photo_id)
     licence = Licence.objects.get(id=17)  # CC BY 4.0
     context = {
@@ -1608,7 +1607,7 @@ def photo_upload_modal(request: Request, photo_id: int):
     return render(request, 'rephoto_upload/_rephoto_upload_modal_content.html', context)
 
 
-def login_modal(request: Request):
+def login_modal(request: HttpRequest):
     context = {
         'next': request.META.get('HTTP_REFERER', None),
         'type': request.GET.get('type', None)
@@ -1617,7 +1616,7 @@ def login_modal(request: Request):
 
 
 @ensure_csrf_cookie
-def mapview(request: Request, photo_id: int | None = None, rephoto_id: int | None = None):
+def mapview(request: HttpRequest, photo_id: int | None = None, rephoto_id: int | None = None):
     profile = request.get_user().profile
     area_selection_form = AreaSelectionForm(request.GET)
     game_album_selection_form = GameAlbumSelectionForm(request.GET)
@@ -1831,7 +1830,7 @@ def geotag_add(request):
                 azimuth_score = degree_error_point_array[int(difference)]
         processed_geotag.azimuth_score = azimuth_score
         processed_geotag.score = score + azimuth_score
-        processed_geotag.save(changed_fields=['azimuth_score', 'score'])
+        processed_geotag.save(update_fields=['azimuth_score', 'score'])
         context['current_score'] = processed_geotag.score + flip_points
         Points.objects.create(
             user=profile,
@@ -1910,13 +1909,13 @@ def geotag_confirm(request):
             if p.azimuth:
                 confirmed_geotag.azimuth = p.azimuth
                 confirmed_geotag.azimuth_correct = True
-                confirmed_geotag.save(changed_fields=['azimuth', 'azimuth_correct'])
+                confirmed_geotag.save(update_fields=['azimuth', 'azimuth_correct'])
 
             Points.objects.create(user=profile, action=Points.GEOTAG, geotag=confirmed_geotag,
                                   points=confirmed_geotag.score,
                                   created=timezone.now(), photo=p)
             p.latest_geotag = timezone.now()
-            p.save(changed_fields=['latest_geotag'])
+            p.save(update_fields=['latest_geotag'])
             profile.set_calculated_fields()
             profile.save()
         context['new_geotag_count'] = GeoTag.objects.filter(photo=p).distinct('user').count()
@@ -3471,7 +3470,7 @@ def oauthdone(request):
     return HttpResponse('No user found', status=404)
 
 
-def user(request: Request, user_id: int):
+def user(request: HttpRequest, user_id: int):
     token = ProfileMergeToken.objects.filter(source_profile_id=user_id, used__isnull=False).order_by('used').first()
     if token and token.target_profile:
         return redirect('user', user_id=token.target_profile.id)
@@ -3552,7 +3551,7 @@ def user(request: Request, user_id: int):
     return render(request, 'user/user.html', context)
 
 
-def user_settings_modal(request: Request):
+def user_settings_modal(request: HttpRequest):
     form = None
     if hasattr(request.user, 'profile'):
         form = UserSettingsForm(data={
@@ -3688,7 +3687,7 @@ def merge_accounts(request):
     return render(request, 'user/merge/merge_accounts.html', context)
 
 
-def geotaggers_modal(request, photo_id):
+def geotaggers_modal(request: HttpRequest, photo_id):
     limit = request.GET.get('limit')
     if limit is not None and limit.isdigit():
         geotags = GeoTag.objects.filter(photo_id=photo_id).order_by('user', '-created').distinct(

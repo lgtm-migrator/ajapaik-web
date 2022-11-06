@@ -14,6 +14,6 @@ class Command(BaseCommand):
                     similarity_type=0).exists() or \
                               ImageSimilarity.objects.filter(to_photo_id=photo.id).exclude(similarity_type=0).exists()
                 photo.has_similar = has_similar
-                photo.save(changed_fields=["has_similar"])
+                photo.save(update_fields=["has_similar"])
             except IndexError:
                 pass

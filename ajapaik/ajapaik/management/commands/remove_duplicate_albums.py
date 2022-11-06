@@ -41,7 +41,7 @@ class Command(BaseCommand):
                 if albums_linking_to_other_instances is not None:
                     for link in albums_linking_to_other_instances:
                         link.subalbum_of = first_instance
-                        link.save(changed_fields=["subalbum_of"])
+                        link.save(update_fields=["subalbum_of"])
                         link.save()
 
                 for other_instance in other_instances:

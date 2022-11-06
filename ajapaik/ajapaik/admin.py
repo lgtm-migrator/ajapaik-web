@@ -1,3 +1,5 @@
+import math
+
 from PIL import Image, ImageOps
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
@@ -52,16 +54,12 @@ class DatingConfirmationAdmin(ModelAdmin):
 class PhotoAdmin(ModelAdmin):
     @staticmethod
     def _distance_between_two_points_on_sphere(lon_1, lat_1, lon_2, lat_2):
-        import math
 
         rad = math.pi / 180.0
         equatorial_radius_meters = 6378137
-        lon_1_rad = lon_1 * rad
-        lat_1_rad = lat_1 * rad
-        lon_2_rad = lon_2 * rad
-        lat_2_rad = lat_2 * rad
-        cos_angle = math.sin(lat_1_rad) * math.sin(lat_2_rad) + math.cos(lat_1_rad) * math.cos(lat_2_rad) * math.cos(
-            lon_2_rad - lon_1_rad)
+
+        cos_angle = math.sin(lat_1 * rad) * math.sin(lat_2 * rad) + math.cos(lat_1 * rad) * math.cos(
+            lat_2 * rad) * math.cos(rad * (lon_2 - lon_1))
 
         if cos_angle >= 1:
             return 0
@@ -82,7 +80,7 @@ class PhotoAdmin(ModelAdmin):
                 else:
                     continue
 
-                geotag.save(changed_fields=["is_correct"])
+                geotag.save(update_fields=["is_correct"])
         obj.save()
 
     extra_buttons = [

@@ -186,7 +186,7 @@ def get_subject_data_empty(request):
     return render(request, 'add_subject_data_empty.html')
 
 
-def get_subject_data(request, rectangle_id=None):
+def get_subject_data(request: HttpRequest, rectangle_id=None):
     profile = request.get_user().profile
     rectangle = None
     next_rectangle = None

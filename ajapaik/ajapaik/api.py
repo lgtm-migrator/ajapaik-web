@@ -685,7 +685,7 @@ class AlbumNearestPhotos(AjapaikAPIView):
                 photos = Photo.objects.filter(rephoto_of__isnull=True, ).annotate(
                     distance=GeometryDistance("geography", ref_location)).order_by("distance")[start:end]
                 photo_ids = photos.values_list('id', flat=True)
-                photos = Photo.objects.filter(id__in=photo_ids).order_by(GeometryDistance("geography", ref_location));
+                photos = Photo.objects.filter(id__in=photo_ids).order_by(GeometryDistance("geography", ref_location))
 
                 photos = PhotoSerializer.annotate_photos(
                     photos,
@@ -730,11 +730,11 @@ class AlbumPhotoInformation(AjapaikAPIView):
     API endpoint to retrieve album details.
     '''
 
-    def get(self, album_id: int, photo_id: int):
+    def get(self, album_id: int, photo: int):
         album = get_object_or_404(Album, id=album_id)
         album_photo = AlbumPhoto.objects.filter(
             album_id=album_id,
-            photo_id=photo_id,
+            photo_id=photo,
             profile__isnull=False
         ).order_by('-created').first()
 
@@ -1646,6 +1646,13 @@ class Transcriptions(AjapaikAPIView):
             user = get_object_or_404(Profile, pk=request.user.profile.id)
             count = Transcription.objects.filter(photo=photo, text=request.POST['text']).count()
             text = request.POST['text']
+            transcriptions_with_same_text = Transcription.objects.filter(photo=photo, text=text)
+
+            for transcriptions_with_same_text in transcriptions_with_same_text:
+                TranscriptionFeedback(
+                    user=user,
+                    transcription=transcriptions_with_same_text
+                ).save()
 
             if count < 1:
                 previous_transcription_by_current_user = Transcription.objects.filter(photo=photo, user=user).first()
@@ -1667,23 +1674,16 @@ class Transcriptions(AjapaikAPIView):
                     photo.transcription_count += 1
                     photo.light_save()
 
-            transcriptions_with_same_text = Transcription.objects.filter(photo=photo, text=text)
-            for transcription in transcriptions_with_same_text:
-                TranscriptionFeedback(
-                    user=user,
-                    transcription=transcription
-                ).save()
-
-            if count > 0:
-                if transcriptions_with_same_text.exists():
-                    return JsonResponse({'message': TRANSCRIPTION_ALREADY_EXISTS})
-                else:
-                    return JsonResponse({'message': TRANSCRIPTION_ALREADY_SUBMITTED})
-            else:
                 if previous_transcription_by_current_user:
                     return JsonResponse({'message': TRANSCRIPTION_UPDATED})
                 else:
                     return JsonResponse({'message': TRANSCRIPTION_ADDED})
+
+            else:
+                if transcriptions_with_same_text.exists():
+                    return JsonResponse({'message': TRANSCRIPTION_ALREADY_EXISTS})
+                else:
+                    return JsonResponse({'message': TRANSCRIPTION_ALREADY_SUBMITTED})
         except:  # noqa
             return JsonResponse({'error': _('Something went wrong')}, status=500)
 
@@ -1895,7 +1895,7 @@ class MuisCollectionOperations(AjapaikAPIView):
         return JsonResponse({'message': 'Done'})
 
     def delete(self, request, collection_id):
-        collection = MuisCollection.filter(id=collection_id)
+        collection = MuisCollection.objects.filter(id=collection_id)
         collection.blacklisted = True
         collection.save()
         return JsonResponse({'message': 'Done'})
@@ -1952,14 +1952,18 @@ class PhotoAppliedOperations(AjapaikAPIView):
             return JsonResponse({'error': _('Something went wrong')}, status=500)
 
     def post(self, request, format=None):
-        profile = request.user.profile
         data = json.loads(request.body.decode('utf-8'))
+        photo_ids = data['photoIds']
+
+        if not photo_ids:
+            return JsonResponse({'error': MISSING_PARAMETER_PHOTO_IDS}, status=400)
+
         flip = data['flip']
         invert = data['invert']
         rotated = data['rotated']
-        photo_ids = data['photoIds']
-        was_rotate_successful = False
-        response = ''
+
+        if flip is None and invert is None and rotated is None:
+            return JsonResponse({'error': MISSING_PARAMETER_FLIP_INVERT_ROTATE}, status=400)
 
         if flip == 'undefined':
             flip = None
@@ -1970,12 +1974,9 @@ class PhotoAppliedOperations(AjapaikAPIView):
         if rotated == 'undefined':
             rotated = None
 
-        if photo_ids is None:
-            return JsonResponse({'error': MISSING_PARAMETER_PHOTO_IDS}, status=400)
-
-        if flip is None and invert is None and rotated is None:
-            return JsonResponse({'error': MISSING_PARAMETER_FLIP_INVERT_ROTATE}, status=400)
-
+        profile = request.user.profile
+        was_rotate_successful = False
+        response = ''
         photo_flip_suggestions = []
         photo_rotated_suggestions = []
         photo_invert_suggestions = []

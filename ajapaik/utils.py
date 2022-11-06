@@ -2,13 +2,14 @@ import datetime as datetime
 import hashlib
 import os
 from math import cos, sin, radians, atan2, sqrt
-from urllib.request import Request
 
+from PIL.Image import Image
+from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 
-def get_etag(_request: Request, image, _content):
+def get_etag(_request: HttpRequest, image: Image):
     if os.path.isfile(image):
         m = hashlib.md5()
         with open(image, 'rb') as f:
@@ -18,9 +19,9 @@ def get_etag(_request: Request, image, _content):
     return None
 
 
-def last_modified(_request, image, _content) -> datetime.datetime | None:
+def last_modified(_request: HttpRequest, image: Image) -> datetime.datetime | None:
     if os.path.isfile(image):
-        return datetime.fromtimestamp(os.path.getmtime(image))
+        return datetime.datetime.fromtimestamp(os.path.getmtime(image))
 
     return None
 
@@ -71,7 +72,7 @@ def convert_to_degrees(value: list[list[int]]):
     return d + (m / 60.0) + (s / 3600.0)
 
 
-def angle_diff(angle1: int, angle2: int):
+def angle_diff(angle1: float, angle2: float):
     diff = angle2 - angle1
     if diff < -180:
         diff += 360

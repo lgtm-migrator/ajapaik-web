@@ -30,4 +30,4 @@ class Command(BaseCommand):
             elif each.user.first_name and each.user.last_name:
                 each.first_name = each.user.first_name
                 each.last_name = each.user.last_name
-            each.save(changed_fields=['first_name', 'last_name'])
+            each.save(update_fields=['first_name', 'last_name'])

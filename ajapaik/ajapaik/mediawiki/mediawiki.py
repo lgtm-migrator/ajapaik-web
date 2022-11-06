@@ -89,7 +89,7 @@ def get_wikimedia_api_client(user):
         if 'access_token' in token:
             social_token.token = token["access_token"]
             social_token.token_secret = token["refresh_token"]
-            social_token.save(changed_fields=['toke', 'token_secret'])
+            social_token.save(update_fields=['toke', 'token_secret'])
             print("Refreshing token OK")
         else:
             print("Refreshing token failed")

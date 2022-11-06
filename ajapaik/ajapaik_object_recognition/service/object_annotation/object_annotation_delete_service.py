@@ -10,7 +10,7 @@ def remove_annotation(annotation_remove_request: AnnotationRemove) -> None:
     )
 
     object_detection_annotation.deleted_on = date.today()
-    object_detection_annotation.save(changed_fields=['deleted_on'])
+    object_detection_annotation.save(update_fields=['deleted_on'])
 
     photo = object_detection_annotation.photo
     if photo.annotation_count > 0:
@@ -18,6 +18,6 @@ def remove_annotation(annotation_remove_request: AnnotationRemove) -> None:
         if photo.annotation_count == 0:
             photo.latest_annotation = None
             photo.first_annotation = None
-            photo.light_save(changed_fields=['annotation_count', 'first_annotation', 'latest_annotation'])
+            photo.light_save(update_fields=['annotation_count', 'first_annotation', 'latest_annotation'])
 
-        photo.light_save(changed_fields=['annotation_count'])
+        photo.light_save(update_fields=['annotation_count'])

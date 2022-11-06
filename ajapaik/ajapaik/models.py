@@ -163,13 +163,13 @@ def _make_fullscreen(photo):
     }
 
 
-def _get_pseudo_slug_for_photo(description: str, source_key: str, id: int):
+def _get_pseudo_slug_for_photo(description: str | None, source_key: str | None, photo_id: int):
     if description:
         slug = '-'.join(slugify(description).split('-')[:6])[:60]
     elif source_key:
         slug = slugify(source_key)
     else:
-        slug = slugify(id)
+        slug = slugify(photo_id)
 
     return slug
 
@@ -993,7 +993,7 @@ class Photo(Model):
                 object_recognition_rectangle.x2 = self.width - top
                 object_recognition_rectangle.y2 = right
                 object_recognition_rectangle.x1 = self.width - bottom
-            object_recognition_rectangle.save(changed_fields=['x1', 'x2', 'y1', 'y2'])
+            object_recognition_rectangle.save(update_fields=['x1', 'x2', 'y1', 'y2'])
 
         self.light_save()
 
@@ -1389,8 +1389,8 @@ class ImageSimilarity(Model):
             from_photo_id=from_photo.id).exclude(similarity_type=0).first() is not None
         from_photo.has_similar = ImageSimilarity.objects.filter(
             from_photo_id=to_photo.id).exclude(similarity_type=0).first() is not None
-        image_similarity.from_photo.save(changed_fields=['has_similar'])
-        image_similarity.to_photo.save(changed_fields=['has_similar'])
+        image_similarity.from_photo.save(update_fields=['has_similar'])
+        image_similarity.to_photo.save(update_fields=['has_similar'])
 
         if suggestions.filter(proposer=self.user_last_modified).count() < 1:
             return 10, suggestion

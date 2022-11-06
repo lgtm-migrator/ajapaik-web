@@ -64,7 +64,7 @@ class Command(BaseCommand):
                         for comment in v['data']:
                             if existing_comment := PhotoComment.objects.filter(fb_comment_id=comment['id']).first():
                                 existing_comment.text = comment['message']
-                                existing_comment.save(changed_fields=['message'])
+                                existing_comment.save(update_fields=['message'])
                             else:
                                 object_id = comment['id'].split('_')[0]
                                 new_photo_comment = PhotoComment(

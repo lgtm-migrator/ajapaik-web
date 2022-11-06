@@ -22,7 +22,7 @@ def __get_saved_label(label_wiki_data_id):
 
         translations = wikidata.get_label_translation(label_wiki_data_id)
         saved_label.translations = translations
-        saved_label.save(changed_fields=['translations'])
+        saved_label.save(update_fields=['translations'])
 
         return saved_label
     except ObjectAnnotationClass.DoesNotExist:
